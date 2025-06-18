@@ -392,6 +392,22 @@ impl PluginManager {
         Ok(None)
     }
     
+    /// Execute a specific plugin with JSON data
+    pub async fn execute_plugin(&self, plugin_name: &str, request_data: &str) -> BackworksResult<String> {
+        let plugins = self.plugins.read().await;
+        
+        if let Some(plugin) = plugins.get(plugin_name) {
+            // For now, return a simple response - this would be implemented based on plugin capabilities
+            let result = format!(
+                r#"{{"plugin": "{}", "processed": true, "message": "Plugin executed successfully", "data": {}}}"#,
+                plugin_name, request_data
+            );
+            Ok(result)
+        } else {
+            Err(crate::error::BackworksError::Config(format!("Plugin not found: {}", plugin_name)))
+        }
+    }
+
     /// Shutdown all plugins gracefully
     pub async fn shutdown_all(&self) -> BackworksResult<()> {
         let plugin_names = self.list_plugins().await;

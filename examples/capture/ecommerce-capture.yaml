@@ -1,0 +1,155 @@
+# E-commerce API capture scenario
+name: ecommerce-capture
+version: 1.0.0
+
+capture:
+  enabled: true
+  auto_start: true
+  storage_path: "./captures/ecommerce"
+  max_requests: 50000
+  
+  include_patterns:
+    - "/api/v1/products/*"
+    - "/api/v1/categories/*"
+    - "/api/v1/cart/*"
+    - "/api/v1/orders/*"
+    - "/api/v1/users/*"
+    - "/api/v1/auth/*"
+    - "/api/v1/payments/*"
+    - "/api/v1/inventory/*"
+    - "/api/v1/reviews/*"
+    - "/api/v1/recommendations/*"
+    
+  exclude_patterns:
+    - "/api/v1/admin/*"
+    - "/api/v1/debug/*"
+    - "/api/v1/metrics"
+    - "/api/v1/health"
+
+endpoints:
+  # Product catalog endpoints
+  - path: "/api/v1/products"
+    method: "GET"
+    mode: mock
+    mock:
+      status: 200
+      headers:
+        content-type: "application/json"
+        x-total-count: "{{random_int 500 2000}}"
+      body: |
+        [
+          {
+            "id": {{random_int 1 1000}},
+            "name": "{{random_choice 'Smartphone,Laptop,Headphones,Tablet,Watch,Camera'}} {{random_choice 'Pro,Max,Ultra,Plus,Standard'}}",
+            "description": "High-quality {{random_choice 'premium,affordable,professional,consumer'}} device",
+            "price": {{random_float 99.99 1999.99}},
+            "category_id": {{random_int 1 20}},
+            "sku": "SKU-{{random_string 8}}",
+            "stock": {{random_int 0 100}},
+            "rating": {{random_float 3.0 5.0}},
+            "image_url": "https://picsum.photos/400/400?random={{random_int 1 1000}}",
+            "created_at": "{{now}}"
+          }
+        ]
+        
+  - path: "/api/v1/products/{id}"
+    method: "GET"
+    mode: mock
+    mock:
+      status: 200
+      headers:
+        content-type: "application/json"
+      body: |
+        {
+          "id": "{{path_params.id}}",
+          "name": "Product {{path_params.id}}",
+          "description": "Detailed description for product {{path_params.id}}",
+          "price": {{random_float 99.99 1999.99}},
+          "category": {
+            "id": {{random_int 1 20}},
+            "name": "{{random_choice 'Electronics,Clothing,Books,Home,Sports,Toys'}}"
+          },
+          "variants": [
+            {
+              "id": {{random_int 1 100}},
+              "size": "{{random_choice 'XS,S,M,L,XL,XXL'}}",
+              "color": "{{random_choice 'Red,Blue,Green,Black,White,Gray'}}",
+              "price_modifier": {{random_float -50.0 100.0}}
+            }
+          ],
+          "specifications": {
+            "weight": "{{random_float 0.1 5.0}}kg",
+            "dimensions": "{{random_int 10 50}}x{{random_int 10 50}}x{{random_int 5 20}}cm",
+            "warranty": "{{random_int 6 36}} months"
+          },
+          "reviews_summary": {
+            "average_rating": {{random_float 3.0 5.0}},
+            "total_reviews": {{random_int 0 500}}
+          }
+        }
+        
+  # Shopping cart endpoints
+  - path: "/api/v1/cart"
+    method: "GET"
+    mode: mock
+    mock:
+      status: 200
+      headers:
+        content-type: "application/json"
+      body: |
+        {
+          "cart_id": "{{random_uuid}}",
+          "user_id": {{random_int 1 10000}},
+          "items": [
+            {
+              "product_id": {{random_int 1 1000}},
+              "variant_id": {{random_int 1 100}},
+              "quantity": {{random_int 1 5}},
+              "unit_price": {{random_float 99.99 1999.99}},
+              "total_price": "{{random_float 99.99 9999.99}}"
+            }
+          ],
+          "subtotal": {{random_float 99.99 9999.99}},
+          "tax": {{random_float 5.0 500.0}},
+          "shipping": {{random_float 0.0 50.0}},
+          "total": {{random_float 104.99 10549.99}},
+          "currency": "USD",
+          "updated_at": "{{now}}"
+        }
+        
+  # Order management
+  - path: "/api/v1/orders"
+    method: "POST"
+    mode: mock
+    mock:
+      status: 201
+      headers:
+        content-type: "application/json"
+        location: "/api/v1/orders/{{random_uuid}}"
+      body: |
+        {
+          "order_id": "{{random_uuid}}",
+          "order_number": "ORD-{{random_string 8 numbers}}",
+          "status": "confirmed",
+          "user_id": {{random_int 1 10000}},
+          "total": {{random_float 104.99 10549.99}},
+          "payment": {
+            "method": "{{random_choice 'credit_card,paypal,apple_pay,google_pay'}}",
+            "status": "paid",
+            "transaction_id": "{{random_uuid}}"
+          },
+          "shipping": {
+            "method": "{{random_choice 'standard,express,overnight'}}",
+            "estimated_delivery": "{{future_date 3 7}}",
+            "tracking_number": "TRK{{random_string 12 numbers}}"
+          },
+          "created_at": "{{now}}"
+        }
+        
+  # Fallback capture for unknown endpoints
+  - path: "/*"
+    method: "*"
+    mode: capture
+    capture:
+      enabled: true
+      session_name: "ecommerce_fallback"

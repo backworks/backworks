@@ -1,0 +1,81 @@
+# Real-time capture and replay configuration
+name: realtime-capture-replay
+version: 1.0.0
+
+capture:
+  enabled: true
+  auto_start: true
+  storage_path: "./captures/realtime"
+  max_requests: 10000
+  
+  # Capture everything except static assets
+  include_patterns:
+    - "/api/*"
+    - "/graphql"
+    - "/rpc/*"
+    - "/webhook/*"
+    
+  exclude_patterns:
+    - "*.css"
+    - "*.js"
+    - "*.png"
+    - "*.jpg"
+    - "*.gif"
+    - "*.ico"
+    - "*.svg"
+    - "*.woff*"
+    - "/static/*"
+    - "/assets/*"
+
+# Plugin configuration for enhanced capture
+plugins:
+  - name: "ai_analyzer"
+    type: "ai"
+    config:
+      model: "gpt-4"
+      analyze_patterns: true
+      generate_schemas: true
+      detect_anomalies: true
+      
+  - name: "performance_monitor"
+    type: "monitoring"
+    config:
+      track_response_times: true
+      alert_slow_requests: true
+      threshold_ms: 1000
+      
+  - name: "security_scanner"
+    type: "security"
+    config:
+      detect_sql_injection: true
+      check_auth_patterns: true
+      validate_input_sanitization: true
+
+endpoints:
+  # Dynamic capture endpoint with AI analysis
+  - path: "/api/analyze"
+    method: "POST"
+    mode: plugin
+    plugin: "ai_analyzer"
+    
+  # Performance monitoring endpoint
+  - path: "/api/performance"
+    method: "GET"
+    mode: plugin
+    plugin: "performance_monitor"
+    
+  # Security analysis endpoint
+  - path: "/api/security/scan"
+    method: "POST"
+    mode: plugin
+    plugin: "security_scanner"
+    
+  # Real-time capture with immediate replay capability
+  - path: "/api/capture/realtime"
+    method: "*"
+    mode: capture
+    capture:
+      enabled: true
+      session_name: "realtime_session"
+      immediate_replay: true
+      replay_delay_ms: 100

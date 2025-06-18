@@ -614,6 +614,8 @@ impl Capturer {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::time::Duration;
+    use tokio::time::sleep;
 
     fn create_test_capture_config() -> CaptureConfig {
         CaptureConfig {
@@ -627,12 +629,42 @@ mod tests {
         }
     }
 
+    fn create_filtered_capture_config() -> CaptureConfig {
+        CaptureConfig {
+            enabled: true,
+            auto_start: false,
+            include_patterns: Some(vec!["/api/*".to_string(), "/v1/*".to_string()]),
+            exclude_patterns: Some(vec!["/health".to_string(), "*.css".to_string()]),
+            methods: Some(vec!["GET".to_string(), "POST".to_string()]),
+            max_requests: Some(100),
+            storage_path: Some("./test_captures".to_string()),
+        }
+    }
+
     #[tokio::test]
     async fn test_capture_handler_creation() {
         let config = create_test_capture_config();
         let handler = CaptureHandler::new(config);
         
         assert!(handler.start().await.is_ok());
+        
+        // Test that no sessions exist initially
+        let sessions = handler.get_sessions().await;
+        assert_eq!(sessions.len(), 0);
+    }
+
+    #[tokio::test]
+    async fn test_capture_handler_auto_start() {
+        let mut config = create_test_capture_config();
+        config.auto_start = Some(true);
+        let handler = CaptureHandler::new(config);
+        
+        assert!(handler.start().await.is_ok());
+        
+        // Auto-start should create a session
+        let sessions = handler.get_sessions().await;
+        assert_eq!(sessions.len(), 1);
+        assert_eq!(sessions[0].name, "auto_session");
     }
 
     #[tokio::test]
@@ -658,6 +690,29 @@ mod tests {
         handler.stop_session(session_id).await.unwrap();
         let session = handler.get_session(session_id).await.unwrap();
         assert!(matches!(session.status, CaptureStatus::Stopped));
+        assert!(session.ended_at.is_some());
+    }
+
+    #[tokio::test]
+    async fn test_multiple_sessions() {
+        let config = create_test_capture_config();
+        let handler = CaptureHandler::new(config);
+        
+        let session1 = handler.start_session("session_1".to_string()).await.unwrap();
+        let session2 = handler.start_session("session_2".to_string()).await.unwrap();
+        let session3 = handler.start_session("session_3".to_string()).await.unwrap();
+        
+        let sessions = handler.get_sessions().await;
+        assert_eq!(sessions.len(), 3);
+        
+        // Only the last session should be active
+        let active_session = *handler.active_session.read().await;
+        assert_eq!(active_session, Some(session3));
+        
+        // Stop the active session
+        handler.stop_session(session3).await.unwrap();
+        let active_session = *handler.active_session.read().await;
+        assert_eq!(active_session, None);
     }
 
     #[tokio::test]
@@ -691,6 +746,194 @@ mod tests {
         assert_eq!(requests[0].path, "/users/123");
         assert!(requests[0].response.is_some());
         assert_eq!(requests[0].response.as_ref().unwrap().status_code, 200);
+        assert_eq!(requests[0].duration, Some(std::time::Duration::from_millis(100)));
+        
+        // Check session request count
+        let session = handler.get_session(session_id).await.unwrap();
+        assert_eq!(session.request_count, 1);
+    }
+
+    #[tokio::test]
+    async fn test_request_capture_no_active_session() {
+        let config = create_test_capture_config();
+        let handler = CaptureHandler::new(config);
+        
+        // No active session
+        let request_id = handler.capture_request(
+            "GET".to_string(),
+            "/users/123".to_string(),
+            HashMap::new(),
+            HashMap::new(),
+            None,
+        ).await.unwrap();
+        
+        // Should return nil UUID when no active session
+        assert_eq!(request_id, Uuid::nil());
+    }
+
+    #[tokio::test]
+    async fn test_request_capture_paused_session() {
+        let config = create_test_capture_config();
+        let handler = CaptureHandler::new(config);
+        
+        let session_id = handler.start_session("test_session".to_string()).await.unwrap();
+        handler.pause_session(session_id).await.unwrap();
+        
+        let request_id = handler.capture_request(
+            "GET".to_string(),
+            "/users/123".to_string(),
+            HashMap::new(),
+            HashMap::new(),
+            None,
+        ).await.unwrap();
+        
+        // Should return nil UUID when session is paused
+        assert_eq!(request_id, Uuid::nil());
+    }
+
+    #[tokio::test]
+    async fn test_capture_filtering() {
+        let config = create_filtered_capture_config();
+        let handler = CaptureHandler::new(config);
+        
+        let session_id = handler.start_session("filtered_session".to_string()).await.unwrap();
+        
+        // Should capture: matches include pattern and method
+        let request_id1 = handler.capture_request(
+            "GET".to_string(),
+            "/api/users".to_string(),
+            HashMap::new(),
+            HashMap::new(),
+            None,
+        ).await.unwrap();
+        assert_ne!(request_id1, Uuid::nil());
+        
+        // Should not capture: doesn't match include pattern
+        let request_id2 = handler.capture_request(
+            "GET".to_string(),
+            "/admin/users".to_string(),
+            HashMap::new(),
+            HashMap::new(),
+            None,
+        ).await.unwrap();
+        assert_eq!(request_id2, Uuid::nil());
+        
+        // Should not capture: matches exclude pattern
+        let request_id3 = handler.capture_request(
+            "GET".to_string(),
+            "/health".to_string(),
+            HashMap::new(),
+            HashMap::new(),
+            None,
+        ).await.unwrap();
+        assert_eq!(request_id3, Uuid::nil());
+        
+        // Should not capture: method not allowed
+        let request_id4 = handler.capture_request(
+            "DELETE".to_string(),
+            "/api/users/123".to_string(),
+            HashMap::new(),
+            HashMap::new(),
+            None,
+        ).await.unwrap();
+        assert_eq!(request_id4, Uuid::nil());
+        
+        let requests = handler.get_captured_requests(session_id, None).await;
+        assert_eq!(requests.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn test_request_filtering_by_capture_filter() {
+        let config = create_test_capture_config();
+        let handler = CaptureHandler::new(config);
+        
+        let session_id = handler.start_session("filter_test".to_string()).await.unwrap();
+        
+        // Add multiple requests with different characteristics
+        let mut headers = HashMap::new();
+        headers.insert("content-type".to_string(), "application/json".to_string());
+        
+        // GET request
+        let req1_id = handler.capture_request(
+            "GET".to_string(),
+            "/api/users".to_string(),
+            headers.clone(),
+            HashMap::new(),
+            None,
+        ).await.unwrap();
+        handler.capture_response(
+            req1_id,
+            200,
+            HashMap::new(),
+            Some(serde_json::json!({"users": []})),
+            Duration::from_millis(50),
+        ).await.unwrap();
+        
+        // POST request
+        let req2_id = handler.capture_request(
+            "POST".to_string(),
+            "/api/orders".to_string(),
+            headers.clone(),
+            HashMap::new(),
+            Some(serde_json::json!({"product_id": 123})),
+        ).await.unwrap();
+        handler.capture_response(
+            req2_id,
+            201,
+            HashMap::new(),
+            Some(serde_json::json!({"order_id": 456})),
+            Duration::from_millis(150),
+        ).await.unwrap();
+        
+        // PUT request
+        let req3_id = handler.capture_request(
+            "PUT".to_string(),
+            "/api/products/789".to_string(),
+            headers,
+            HashMap::new(),
+            Some(serde_json::json!({"name": "Updated Product"})),
+        ).await.unwrap();
+        handler.capture_response(
+            req3_id,
+            500,
+            HashMap::new(),
+            Some(serde_json::json!({"error": "Internal error"})),
+            Duration::from_millis(300),
+        ).await.unwrap();
+        
+        // Test filtering by method
+        let filter = CaptureFilter {
+            methods: Some(vec!["GET".to_string(), "POST".to_string()]),
+            path_patterns: None,
+            status_codes: None,
+            min_duration: None,
+            max_duration: None,
+        };
+        let filtered_requests = handler.get_captured_requests(session_id, Some(filter)).await;
+        assert_eq!(filtered_requests.len(), 2);
+        
+        // Test filtering by status code
+        let filter = CaptureFilter {
+            methods: None,
+            path_patterns: None,
+            status_codes: Some(vec![200, 201]),
+            min_duration: None,
+            max_duration: None,
+        };
+        let filtered_requests = handler.get_captured_requests(session_id, Some(filter)).await;
+        assert_eq!(filtered_requests.len(), 2);
+        
+        // Test filtering by duration
+        let filter = CaptureFilter {
+            methods: None,
+            path_patterns: None,
+            status_codes: None,
+            min_duration: Some(Duration::from_millis(100)),
+            max_duration: Some(Duration::from_millis(200)),
+        };
+        let filtered_requests = handler.get_captured_requests(session_id, Some(filter)).await;
+        assert_eq!(filtered_requests.len(), 1);
+        assert_eq!(filtered_requests[0].method, "POST");
     }
 
     #[tokio::test]
@@ -701,5 +944,195 @@ mod tests {
         assert_eq!(handler.extract_path_pattern("/users/123"), "/users/{id}");
         assert_eq!(handler.extract_path_pattern("/api/v1/posts/456/comments"), "/api/v1/posts/{id}/comments");
         assert_eq!(handler.extract_path_pattern("/auth/token/abc123def456"), "/auth/token/{token}");
+        assert_eq!(handler.extract_path_pattern("/orders/550e8400-e29b-41d4-a716-446655440000"), "/orders/{uuid}");
+        assert_eq!(handler.extract_path_pattern("/api/v2/users/profile"), "/api/v2/users/profile");
+    }
+
+    #[tokio::test]
+    async fn test_yaml_config_generation() {
+        let config = create_test_capture_config();
+        let handler = CaptureHandler::new(config);
+        
+        let session_id = handler.start_session("yaml_test".to_string()).await.unwrap();
+        
+        // Create sample requests
+        let req1_id = handler.capture_request(
+            "GET".to_string(),
+            "/api/users/123".to_string(),
+            HashMap::new(),
+            HashMap::new(),
+            None,
+        ).await.unwrap();
+        
+        let mut response_headers = HashMap::new();
+        response_headers.insert("content-type".to_string(), "application/json".to_string());
+        
+        handler.capture_response(
+            req1_id,
+            200,
+            response_headers,
+            Some(serde_json::json!({"id": 123, "name": "John Doe"})),
+            Duration::from_millis(100),
+        ).await.unwrap();
+        
+        let yaml_config = handler.generate_api_from_capture(session_id).await.unwrap();
+        
+        assert!(yaml_config.contains("name: captured_api"));
+        assert!(yaml_config.contains("endpoints:"));
+        assert!(yaml_config.contains("path: /api/users/{id}"));
+        assert!(yaml_config.contains("method: GET"));
+        assert!(yaml_config.contains("status: 200"));
+    }
+
+    #[tokio::test]
+    async fn test_export_formats() {
+        let config = create_test_capture_config();
+        let handler = CaptureHandler::new(config);
+        
+        let session_id = handler.start_session("export_test".to_string()).await.unwrap();
+        
+        // Add a sample request
+        let req_id = handler.capture_request(
+            "GET".to_string(),
+            "/api/test".to_string(),
+            HashMap::new(),
+            HashMap::new(),
+            None,
+        ).await.unwrap();
+        
+        handler.capture_response(
+            req_id,
+            200,
+            HashMap::new(),
+            Some(serde_json::json!({"message": "test"})),
+            Duration::from_millis(50),
+        ).await.unwrap();
+        
+        // Test JSON export
+        let json_export = handler.export_session(session_id, "json").await.unwrap();
+        assert!(json_export.contains("\"session\""));
+        assert!(json_export.contains("\"requests\""));
+        
+        // Test YAML export
+        let yaml_export = handler.export_session(session_id, "yaml").await.unwrap();
+        assert!(yaml_export.contains("name: captured_api"));
+        
+        // Test HAR export
+        let har_export = handler.export_session(session_id, "har").await.unwrap();
+        assert!(har_export.contains("\"log\""));
+        assert!(har_export.contains("\"version\": \"1.2\""));
+        assert!(har_export.contains("\"entries\""));
+        
+        // Test unsupported format
+        let result = handler.export_session(session_id, "xml").await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_capturer_utility() {
+        let capturer = Capturer::new(8080, "/tmp/test_capture.txt".to_string());
+        
+        // Test basic capture
+        assert!(capturer.start().await.is_ok());
+        
+        // Test timed capture
+        let start_time = std::time::Instant::now();
+        assert!(capturer.capture_for_duration(Duration::from_millis(100)).await.is_ok());
+        let elapsed = start_time.elapsed();
+        assert!(elapsed >= Duration::from_millis(90)); // Allow some tolerance
+        
+        // Test config generation
+        let input_path = std::path::PathBuf::from("/tmp/input.json");
+        let output_path = std::path::PathBuf::from("/tmp/output.yaml");
+        assert!(capturer.generate_from_file(input_path, output_path).await.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_concurrent_capture_operations() {
+        let config = create_test_capture_config();
+        let handler = Arc::new(CaptureHandler::new(config));
+        
+        let session_id = handler.start_session("concurrent_test".to_string()).await.unwrap();
+        
+        // Spawn multiple concurrent capture operations
+        let mut handles = vec![];
+        
+        for i in 0..10 {
+            let handler_clone = Arc::clone(&handler);
+            let handle = tokio::spawn(async move {
+                let request_id = handler_clone.capture_request(
+                    "GET".to_string(),
+                    format!("/api/test/{}", i),
+                    HashMap::new(),
+                    HashMap::new(),
+                    None,
+                ).await.unwrap();
+                
+                handler_clone.capture_response(
+                    request_id,
+                    200,
+                    HashMap::new(),
+                    Some(serde_json::json!({"id": i})),
+                    Duration::from_millis(10),
+                ).await.unwrap();
+            });
+            handles.push(handle);
+        }
+        
+        // Wait for all operations to complete
+        for handle in handles {
+            handle.await.unwrap();
+        }
+        
+        let requests = handler.get_captured_requests(session_id, None).await;
+        assert_eq!(requests.len(), 10);
+        
+        let session = handler.get_session(session_id).await.unwrap();
+        assert_eq!(session.request_count, 10);
+    }
+
+    #[tokio::test]
+    async fn test_performance_with_large_dataset() {
+        let config = create_test_capture_config();
+        let handler = CaptureHandler::new(config);
+        
+        let session_id = handler.start_session("performance_test".to_string()).await.unwrap();
+        
+        let start_time = std::time::Instant::now();
+        
+        // Capture 1000 requests
+        for i in 0..1000 {
+            let request_id = handler.capture_request(
+                "GET".to_string(),
+                format!("/api/items/{}", i),
+                HashMap::new(),
+                HashMap::new(),
+                Some(serde_json::json!({"item_id": i})),
+            ).await.unwrap();
+            
+            handler.capture_response(
+                request_id,
+                200,
+                HashMap::new(),
+                Some(serde_json::json!({"result": format!("item_{}", i)})),
+                Duration::from_millis(1),
+            ).await.unwrap();
+        }
+        
+        let elapsed = start_time.elapsed();
+        println!("Captured 1000 requests in {:?}", elapsed);
+        
+        // Verify all requests were captured
+        let requests = handler.get_captured_requests(session_id, None).await;
+        assert_eq!(requests.len(), 1000);
+        
+        // Test retrieval performance
+        let start_time = std::time::Instant::now();
+        let _requests = handler.get_captured_requests(session_id, None).await;
+        let retrieval_time = start_time.elapsed();
+        println!("Retrieved 1000 requests in {:?}", retrieval_time);
+        
+        // Should be reasonably fast (less than 100ms for 1000 requests)
+        assert!(retrieval_time < Duration::from_millis(100));
     }
 }

@@ -41,18 +41,14 @@ pub enum ExecutionMode {
     #[default]
     #[serde(rename = "mock")]
     Mock,
-    #[serde(rename = "capture")]
-    Capture,
     #[serde(rename = "runtime")]
     Runtime,
     #[serde(rename = "database")]
     Database,
     #[serde(rename = "proxy")]
     Proxy,
-    #[serde(rename = "hybrid")]
-    Hybrid,
-    #[serde(rename = "evolving")]
-    Evolving,
+    #[serde(rename = "plugin")]
+    Plugin,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -102,6 +98,9 @@ pub struct EndpointConfig {
     
     // Capture configuration
     pub capture: Option<CaptureConfig>,
+    
+    // Plugin configuration
+    pub plugin: Option<String>,
     
     // AI configuration
     pub ai_enhanced: Option<bool>,
@@ -185,6 +184,10 @@ pub struct ProxyConfig {
     pub health_checks: Option<bool>,
     pub load_balancing: Option<LoadBalancingConfig>,
     pub headers: Option<HashMap<String, String>>,
+    
+    // Integrated capture functionality
+    #[serde(default)]
+    pub capture: Option<CaptureConfig>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

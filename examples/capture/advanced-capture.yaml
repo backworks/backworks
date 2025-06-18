@@ -1,0 +1,133 @@
+# Advanced capture configuration with filtering and analysis
+name: advanced-capture-api
+version: 1.0.0
+
+capture:
+  enabled: true
+  auto_start: false  # Manual session control
+  storage_path: "./captures/advanced"
+  max_requests: 5000
+  
+  # Capture specific API patterns
+  include_patterns:
+    - "/api/v*/users/*"
+    - "/api/v*/orders/*"
+    - "/api/v*/products/*"
+    - "/graphql"
+    - "/webhook/*"
+    
+  # Exclude development and monitoring endpoints
+  exclude_patterns:
+    - "/api/debug/*"
+    - "/metrics"
+    - "/prometheus"
+    - "/health/*"
+    - "/admin/logs"
+    
+  # All HTTP methods
+  methods:
+    - "GET"
+    - "POST"
+    - "PUT"
+    - "DELETE"
+    - "PATCH"
+    - "OPTIONS"
+    - "HEAD"
+
+# Example of captured API converted to mock endpoints
+endpoints:
+  # User management endpoints
+  - path: "/api/v1/users"
+    method: "GET"
+    mode: mock
+    mock:
+      status: 200
+      headers:
+        content-type: "application/json"
+        x-total-count: "150"
+      body: |
+        [
+          {
+            "id": 1,
+            "username": "john_doe",
+            "email": "john@example.com",
+            "created_at": "2024-01-15T10:30:00Z"
+          },
+          {
+            "id": 2,
+            "username": "jane_smith",
+            "email": "jane@example.com",
+            "created_at": "2024-01-16T14:20:00Z"
+          }
+        ]
+        
+  - path: "/api/v1/users/{id}"
+    method: "GET"
+    mode: mock
+    mock:
+      status: 200
+      headers:
+        content-type: "application/json"
+      body: |
+        {
+          "id": "{{path_params.id}}",
+          "username": "user_{{path_params.id}}",
+          "email": "user{{path_params.id}}@example.com",
+          "profile": {
+            "first_name": "User",
+            "last_name": "{{path_params.id}}",
+            "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed={{path_params.id}}"
+          },
+          "created_at": "2024-01-{{random_int 10 28}}T{{random_int 9 17}}:{{random_int 10 59}}:00Z"
+        }
+        
+  - path: "/api/v1/users"
+    method: "POST"
+    mode: mock
+    mock:
+      status: 201
+      headers:
+        content-type: "application/json"
+        location: "/api/v1/users/{{random_int 1000 9999}}"
+      body: |
+        {
+          "id": {{random_int 1000 9999}},
+          "username": "{{body.username}}",
+          "email": "{{body.email}}",
+          "created_at": "{{now}}",
+          "status": "created"
+        }
+        
+  # Order management endpoints  
+  - path: "/api/v1/orders"
+    method: "GET"
+    mode: mock
+    mock:
+      status: 200
+      headers:
+        content-type: "application/json"
+      body: |
+        [
+          {
+            "id": "order_{{random_uuid}}",
+            "user_id": {{random_int 1 100}},
+            "status": "{{random_choice 'pending,processing,shipped,delivered'}}",
+            "total": {{random_float 10.0 500.0}},
+            "items": [
+              {
+                "product_id": {{random_int 1 50}},
+                "quantity": {{random_int 1 5}},
+                "price": {{random_float 5.0 100.0}}
+              }
+            ],
+            "created_at": "{{now}}"
+          }
+        ]
+        
+  # Fallback capture endpoint
+  - path: "/*"
+    method: "*"
+    mode: capture
+    capture:
+      enabled: true
+      session_name: "fallback_capture"

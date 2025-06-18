@@ -22,7 +22,6 @@ use crate::database::DatabaseManager;
 use crate::runtime::RuntimeManager;
 use crate::mock::MockHandler;
 use crate::proxy::ProxyHandler;
-use crate::capture::CaptureHandler;
 use crate::plugin::PluginManager;
 use crate::error::{BackworksError, Result};
 
@@ -34,7 +33,6 @@ pub struct AppState {
     pub runtime_manager: RuntimeManager,
     pub mock_handler: MockHandler,
     pub proxy_handler: Option<ProxyHandler>,
-    pub capture_handler: Option<CaptureHandler>,
 }
 
 pub struct BackworksServer {
@@ -53,7 +51,7 @@ impl BackworksServer {
         let runtime_config = crate::runtime::RuntimeManagerConfig::default();
         let runtime_manager = RuntimeManager::new(runtime_config);
         
-        let proxy_handler = if matches!(config.mode, ExecutionMode::Proxy | ExecutionMode::Hybrid) {
+        let proxy_handler = if matches!(config.mode, ExecutionMode::Proxy) {
             // Create a default proxy config for now
             let proxy_config = crate::config::ProxyConfig {
                 target: "http://localhost:8081".to_string(),
@@ -65,27 +63,14 @@ impl BackworksServer {
                 health_checks: Some(false),
                 load_balancing: None,
                 headers: None,
+                capture: None, // Capture can be enabled per endpoint
             };
             Some(ProxyHandler::new(proxy_config))
         } else {
             None
         };
         
-        let capture_handler = if matches!(config.mode, ExecutionMode::Capture) {
-            // Create a default capture config for now
-            let capture_config = crate::config::CaptureConfig {
-                analyze: Some(true),
-                learn_schema: Some(true),
-                enabled: Some(true),
-                auto_start: Some(false),
-                include_patterns: None,
-                exclude_patterns: None,
-                methods: None,
-            };
-            Some(CaptureHandler::new(capture_config))
-        } else {
-            None
-        };
+        // Remove standalone capture handler - it's now integrated into proxy
         
         let state = AppState {
             config,
@@ -94,7 +79,6 @@ impl BackworksServer {
             runtime_manager,
             mock_handler,
             proxy_handler,
-            capture_handler,
         };
         
         Ok(Self { state })
@@ -330,42 +314,15 @@ async fn handle_endpoint_request(
                 Err(BackworksError::config("Proxy mode requires proxy handler"))
             }
         }
-        ExecutionMode::Capture => {
-            if let Some(ref capture_handler) = state.capture_handler {
-                capture_handler.handle_request(&endpoint_name, &request_data).await
+        ExecutionMode::Plugin => {
+            // Handle plugin-based execution
+            if let Some(plugin_name) = &endpoint_config.plugin {
+                let request_data_json = serde_json::to_string(&request_data)
+                    .map_err(|e| BackworksError::Json(e))?;
+                state.plugin_manager.execute_plugin(plugin_name, &request_data_json).await
             } else {
-                Err(BackworksError::config("Capture mode requires capture handler"))
+                Err(BackworksError::config("Plugin mode requires plugin name"))
             }
-        }
-        ExecutionMode::Hybrid => {
-            // Try different modes based on configuration priority
-            if let Some(ref runtime_config) = endpoint_config.runtime {
-                state.runtime_manager.handle_request(runtime_config, &request_data_json).await
-            } else if endpoint_config.database.is_some() && state.database_manager.is_some() {
-                let db_manager = state.database_manager.as_ref().unwrap();
-                let _db_config = endpoint_config.database.as_ref().unwrap();
-                // Convert EndpointDatabaseConfig to DatabaseConfig for now
-                let full_db_config = crate::config::DatabaseConfig {
-                    db_type: "sqlite".to_string(), // Default type
-                    connection_string: None,
-                    connection_string_env: Some("DATABASE_URL".to_string()),
-                    pool: None,
-                    databases: None,
-                };
-                db_manager.handle_request(&method, &full_db_config, &request_data_json).await
-            } else if endpoint_config.proxy.is_some() && state.proxy_handler.is_some() {
-                let proxy_handler = state.proxy_handler.as_ref().unwrap();
-                let proxy_config = endpoint_config.proxy.as_ref().unwrap();
-                proxy_handler.handle_request(proxy_config, &request_data).await
-            } else {
-                let mock_result = state.mock_handler.handle_request(&endpoint_name, endpoint_config, &request_data).await?;
-                Ok(serde_json::to_string(&mock_result).map_err(|e| BackworksError::Json(e))?)
-            }
-        }
-        ExecutionMode::Evolving => {
-            // For now, use mock mode (evolution logic would be implemented later)
-            let mock_result = state.mock_handler.handle_request(&endpoint_name, endpoint_config, &request_data).await?;
-            Ok(serde_json::to_string(&mock_result).map_err(|e| BackworksError::Json(e))?)
         }
     };
     
