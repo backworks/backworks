@@ -51,6 +51,22 @@ pub enum BackworksError {
     
     #[error("Render error: {0}")]
     Render(#[from] handlebars::RenderError),
+    
+    // Plugin system errors
+    #[error("Plugin initialization failed: {0}")]
+    PluginInitializationFailed(String),
+    
+    #[error("Plugin timeout: {0}")]
+    PluginTimeout(String),
+    
+    #[error("Critical plugin failure: {0:?}")]
+    CriticalPluginFailure(Vec<String>),
+    
+    #[error("Plugin configuration invalid: {0}")]
+    PluginConfigInvalid(String),
+    
+    #[error("Plugin not found: {0}")]
+    PluginNotFound(String),
 }
 
 impl BackworksError {
@@ -105,6 +121,11 @@ impl IntoResponse for BackworksError {
             BackworksError::Request(_) => (StatusCode::BAD_REQUEST, self.to_string()),
             BackworksError::Template(_) => (StatusCode::INTERNAL_SERVER_ERROR, self.to_string()),
             BackworksError::Render(_) => (StatusCode::INTERNAL_SERVER_ERROR, self.to_string()),
+            BackworksError::PluginInitializationFailed(_) => (StatusCode::INTERNAL_SERVER_ERROR, self.to_string()),
+            BackworksError::PluginTimeout(_) => (StatusCode::GATEWAY_TIMEOUT, self.to_string()),
+            BackworksError::CriticalPluginFailure(_) => (StatusCode::INTERNAL_SERVER_ERROR, self.to_string()),
+            BackworksError::PluginConfigInvalid(_) => (StatusCode::BAD_REQUEST, self.to_string()),
+            BackworksError::PluginNotFound(_) => (StatusCode::NOT_FOUND, self.to_string()),
         };
 
         let body = Json(serde_json::json!({

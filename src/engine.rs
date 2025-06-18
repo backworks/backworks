@@ -5,18 +5,20 @@ use tracing::{info, error};
 use crate::config::{BackworksConfig, ExecutionMode};
 use crate::server::BackworksServer;
 use crate::dashboard::Dashboard;
-use crate::ai::AIEnhancer;
 use crate::database::DatabaseManager;
 use crate::runtime::{RuntimeManager, RuntimeManagerConfig};
+use crate::plugin::PluginManager;
+use crate::plugins::ai::AIPlugin;
+use crate::resilience::ResilientPluginConfig;
 use crate::error::{BackworksError, Result};
 
 pub struct BackworksEngine {
     config: Arc<BackworksConfig>,
     server: BackworksServer,
     dashboard: Option<Dashboard>,
-    ai_enhancer: Option<AIEnhancer>,
     database_manager: Option<DatabaseManager>,
     runtime_manager: RuntimeManager,
+    plugin_manager: PluginManager,
 }
 
 impl BackworksEngine {
@@ -28,13 +30,37 @@ impl BackworksEngine {
         info!("   Mode: {:?}", config.mode);
         info!("   Endpoints: {}", config.endpoints.len());
         
-        // Initialize AI enhancer if enabled
-        let ai_enhancer = if config.ai.enabled {
-            info!("🤖 Initializing AI enhancer...");
-            Some(AIEnhancer::new(config.ai.clone()))
-        } else {
-            None
-        };
+        // Initialize plugin manager
+        let plugin_manager = PluginManager::new();
+        
+        // Initialize plugins based on configuration with resilience
+        if let Some(ai_config) = config.plugins.get("ai") {
+            if ai_config.enabled {
+                info!("🔌 Loading AI Plugin with resilience...");
+                let ai_plugin = Arc::new(AIPlugin::new());
+                
+                // Configure resilience settings for AI plugin
+                let resilience_config = ResilientPluginConfig {
+                    circuit_breaker: Some(crate::resilience::CircuitBreakerConfig {
+                        failure_threshold: 3,
+                        recovery_timeout: std::time::Duration::from_secs(60),
+                        timeout: std::time::Duration::from_millis(500), // AI operations can take longer
+                    }),
+                    resource_limits: Some(crate::resilience::PluginResourceLimits {
+                        max_memory_mb: Some(200), // AI needs more memory
+                        max_execution_time: Some(std::time::Duration::from_millis(500)),
+                        max_concurrent_operations: Some(5),
+                    }),
+                    is_critical: false, // AI plugin is not critical
+                };
+                
+                plugin_manager.register_plugin(
+                    ai_plugin, 
+                    Some(ai_config.config.clone()),
+                    Some(resilience_config)
+                ).await?;
+            }
+        }
         
         // Initialize database manager if needed
         let database_manager = if config.database.is_some() || 
@@ -66,18 +92,17 @@ impl BackworksEngine {
         info!("🚀 Initializing API server on {}:{}...", config.server.host, config.server.port);
         let server = BackworksServer::new(
             config.clone(),
-            ai_enhancer.clone(),
             database_manager.clone(),
-            runtime_manager.clone(),
+            plugin_manager.clone(),
         )?;
         
         Ok(Self {
             config,
             server,
             dashboard,
-            ai_enhancer,
             database_manager,
             runtime_manager,
+            plugin_manager,
         })
     }
     
@@ -121,6 +146,11 @@ impl BackworksEngine {
         // Graceful shutdown
         info!("🔄 Shutting down...");
         
+        // Shutdown plugins
+        if let Err(e) = self.plugin_manager.shutdown_all().await {
+            error!("Plugin shutdown error: {}", e);
+        }
+        
         if let Some(handle) = dashboard_handle {
             handle.abort();
         }
@@ -143,8 +173,15 @@ impl BackworksEngine {
         
         println!("📊 Mode: {:?}", self.config.mode);
         
-        if self.config.ai.enabled {
-            println!("🤖 AI: Enabled");
+        // Show enabled plugins
+        let plugin_count = self.config.plugins.iter().filter(|(_, config)| config.enabled).count();
+        if plugin_count > 0 {
+            println!("🔌 Plugins: {} enabled", plugin_count);
+            for (name, plugin_config) in &self.config.plugins {
+                if plugin_config.enabled {
+                    println!("   └─ {}", name);
+                }
+            }
         }
         
         if self.config.database.is_some() {

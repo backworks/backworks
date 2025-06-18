@@ -18,18 +18,18 @@ use std::collections::HashMap;
 use tracing::{info, debug, error};
 
 use crate::config::{BackworksConfig, ExecutionMode};
-use crate::ai::AIEnhancer;
 use crate::database::DatabaseManager;
 use crate::runtime::RuntimeManager;
 use crate::mock::MockHandler;
 use crate::proxy::ProxyHandler;
 use crate::capture::CaptureHandler;
+use crate::plugin::PluginManager;
 use crate::error::{BackworksError, Result};
 
 #[derive(Clone)]
 pub struct AppState {
     pub config: Arc<BackworksConfig>,
-    pub ai_enhancer: Option<AIEnhancer>,
+    pub plugin_manager: PluginManager,
     pub database_manager: Option<DatabaseManager>,
     pub runtime_manager: RuntimeManager,
     pub mock_handler: MockHandler,
@@ -44,11 +44,14 @@ pub struct BackworksServer {
 impl BackworksServer {
     pub fn new(
         config: Arc<BackworksConfig>,
-        ai_enhancer: Option<AIEnhancer>,
         database_manager: Option<DatabaseManager>,
-        runtime_manager: RuntimeManager,
+        plugin_manager: PluginManager,
     ) -> Result<Self> {
         let mock_handler = MockHandler::new(config.clone());
+        
+        // Initialize runtime manager
+        let runtime_config = crate::runtime::RuntimeManagerConfig::default();
+        let runtime_manager = RuntimeManager::new(runtime_config);
         
         let proxy_handler = if matches!(config.mode, ExecutionMode::Proxy | ExecutionMode::Hybrid) {
             // Create a default proxy config for now
@@ -86,7 +89,7 @@ impl BackworksServer {
         
         let state = AppState {
             config,
-            ai_enhancer,
+            plugin_manager,
             database_manager,
             runtime_manager,
             mock_handler,
@@ -204,7 +207,7 @@ impl BackworksServer {
     }
 }
 
-// Middleware for request processing and AI enhancement
+// Middleware for request processing and plugin hooks
 async fn request_middleware(
     State(state): State<AppState>,
     mut request: axum::extract::Request,
@@ -212,17 +215,18 @@ async fn request_middleware(
 ) -> axum::response::Response {
     let start_time = std::time::Instant::now();
     
-    // AI analysis if enabled
-    if let Some(ref ai) = state.ai_enhancer {
-        // Analyze request patterns
-        let request_summary = format!("{} {}", request.method(), request.uri().path());
-        if let Err(e) = ai.analyze_request(&request_summary).await {
-            error!("AI request analysis failed: {}", e);
-        }
+    // Call before_request hooks on all plugins
+    if let Err(e) = state.plugin_manager.before_request(&mut request).await {
+        error!("Plugin before_request hook failed: {}", e);
     }
     
     // Process request through middleware chain
-    let response = next.run(request).await;
+    let mut response = next.run(request).await;
+    
+    // Call after_response hooks on all plugins
+    if let Err(e) = state.plugin_manager.after_response(&mut response).await {
+        error!("Plugin after_response hook failed: {}", e);
+    }
     
     let duration = start_time.elapsed();
     debug!("Request processed in {:?}", duration);

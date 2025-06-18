@@ -5,6 +5,31 @@ version: "1.0.0"
 # Start with mock mode for instant prototyping
 mode: "mock"
 
+# Plugin configurations - modular enhancements
+plugins:
+  # AI Enhancement Plugin (optional)
+  ai:
+    enabled: true
+    config:
+      features:
+        - "smart_responses"
+        - "pattern_detection"
+      model: "gpt-3.5-turbo"
+      context_window: 4000
+      timeout_seconds: 30
+      cache_responses: true
+      smart_responses:
+        enabled: true
+        creativity: 0.7
+        consistent_personas: true
+      pattern_detection:
+        enabled: true
+        min_requests: 10
+        confidence_threshold: 0.8
+      config_generation:
+        enabled: false
+        auto_suggest: false
+
 # Enable visual dashboard
 dashboard:
   enabled: true

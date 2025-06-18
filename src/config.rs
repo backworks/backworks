@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use crate::error::{BackworksError, Result};
+use crate::plugin::PluginConfig;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BackworksConfig {
@@ -17,8 +18,9 @@ pub struct BackworksConfig {
     #[serde(default)]
     pub server: ServerConfig,
     
+    // Plugin configurations (replaces individual feature configs like AI)
     #[serde(default)]
-    pub ai: AIConfig,
+    pub plugins: HashMap<String, PluginConfig>,
     
     pub dashboard: Option<DashboardConfig>,
     pub database: Option<DatabaseConfig>,
@@ -289,38 +291,6 @@ pub struct EndpointMonitoringConfig {
     pub category: Option<String>,
     pub critical: Option<bool>,
     pub expected_duration_ms: Option<u64>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct AIConfig {
-    #[serde(default)]
-    pub enabled: bool,
-    pub features: Option<Vec<String>>,
-    pub models: Option<HashMap<String, AIModelConfig>>,
-    pub learning: Option<AILearningConfig>,
-    pub endpoint_ai: Option<HashMap<String, AIEndpointConfig>>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AIModelConfig {
-    #[serde(rename = "type")]
-    pub model_type: String,
-    pub path: Option<String>,
-    pub confidence_threshold: Option<f64>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AILearningConfig {
-    pub enabled: Option<bool>,
-    pub retention_days: Option<u64>,
-    pub export_insights: Option<bool>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AIEndpointConfig {
-    pub generate_realistic_data: Option<bool>,
-    pub analyze_usage_patterns: Option<bool>,
-    pub predict_missing_fields: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -596,13 +566,17 @@ fn validate_config(config: &BackworksConfig) -> Result<()> {
         }
     }
     
-    // Validate AI config if enabled
-    if config.ai.enabled {
-        if let Some(ref models) = config.ai.models {
-            for (name, model) in models {
-                match model.model_type.as_str() {
-                    "onnx" | "candle" => {},
-                    _ => return Err(BackworksError::config(format!("Invalid AI model type '{}' for model '{}'", model.model_type, name))),
+    // Validate plugin configurations
+    for (plugin_name, plugin_config) in &config.plugins {
+        if plugin_config.enabled {
+            // Basic validation - each plugin can have its own validation logic
+            match plugin_name.as_str() {
+                "ai" => {
+                    // AI plugin specific validation could go here
+                    // For now, just ensure the config is valid JSON
+                },
+                _ => {
+                    // Unknown plugins are allowed for extensibility
                 }
             }
         }
