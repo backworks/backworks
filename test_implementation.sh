@@ -30,15 +30,33 @@ run_test() {
     echo -e "\n${BLUE}Test ${TOTAL_TESTS}: ${test_name}${NC}"
     echo "Command: $test_command"
     
-    if eval "$test_command" 2>&1 | grep -q "$expected_pattern"; then
-        echo -e "${GREEN}✅ PASSED${NC}"
-        TESTS_PASSED=$((TESTS_PASSED + 1))
+    local output=$(eval "$test_command" 2>&1)
+    local exit_code=$?
+    
+    if [ -z "$expected_pattern" ]; then
+        # For empty pattern, just check if command succeeded
+        if [ $exit_code -eq 0 ]; then
+            echo -e "${GREEN}✅ PASSED${NC}"
+            TESTS_PASSED=$((TESTS_PASSED + 1))
+        else
+            echo -e "${RED}❌ FAILED${NC}"
+            TESTS_FAILED=$((TESTS_FAILED + 1))
+            echo "Expected pattern: $expected_pattern"
+            echo "Actual output:"
+            echo "$output" | head -10
+        fi
     else
-        echo -e "${RED}❌ FAILED${NC}"
-        TESTS_FAILED=$((TESTS_FAILED + 1))
-        echo "Expected pattern: $expected_pattern"
-        echo "Actual output:"
-        eval "$test_command" 2>&1 | head -10
+        # For non-empty pattern, check if output matches
+        if echo "$output" | grep -q "$expected_pattern"; then
+            echo -e "${GREEN}✅ PASSED${NC}"
+            TESTS_PASSED=$((TESTS_PASSED + 1))
+        else
+            echo -e "${RED}❌ FAILED${NC}"
+            TESTS_FAILED=$((TESTS_FAILED + 1))
+            echo "Expected pattern: $expected_pattern"
+            echo "Actual output:"
+            echo "$output" | head -10
+        fi
     fi
 }
 
@@ -131,9 +149,9 @@ echo -e "\n${YELLOW}📝 Testing Configuration Validation${NC}"
 echo "===================================="
 
 # Test YAML parsing of example configs
-run_test "Basic example YAML is valid" "cd /Volumes/EXT/repos/devstroop/backworks/examples/basic/simple-api && python3 -c \"import yaml; yaml.safe_load(open('backworks.yaml'))\"" ""
+run_test "Basic example YAML is valid" "cd /Volumes/EXT/repos/devstroop/backworks/examples/basic/simple-api && python3 -c 'import yaml; yaml.safe_load(open(\"backworks.yaml\"))'" ""
 
-run_test "Advanced example YAML is valid" "cd /Volumes/EXT/repos/devstroop/backworks/examples/advanced/ai-powered-api && python3 -c \"import yaml; yaml.safe_load(open('backworks.yaml'))\"" ""
+run_test "Advanced example YAML is valid" "cd /Volumes/EXT/repos/devstroop/backworks/examples/advanced/ai-powered-api && python3 -c 'import yaml; yaml.safe_load(open(\"backworks.yaml\"))'" ""
 
 echo -e "\n${YELLOW}🧪 Testing Handler Scripts${NC}"
 echo "==========================="

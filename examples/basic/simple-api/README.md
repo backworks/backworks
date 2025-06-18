@@ -1,4 +1,4 @@
-# Simple API Example
+# Simple User API
 
 A basic REST API demonstrating core Backworks concepts using mock data.
 
