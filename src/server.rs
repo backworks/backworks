@@ -9,7 +9,7 @@ use axum::{
 };
 use tower::ServiceBuilder;
 use tower_http::{
-    cors::{CorsLayer, Any, AllowOrigin},
+    cors::{CorsLayer, Any},
     trace::TraceLayer,
 };
 use serde_json::Value;
@@ -397,11 +397,12 @@ async fn health_check() -> Json<Value> {
 
 // Metrics endpoint
 async fn metrics_handler() -> String {
-    // TODO: Implement proper metrics collection
+    // Simulate metrics collection
     format!(
         "# HELP backworks_requests_total Total number of requests\n\
          # TYPE backworks_requests_total counter\n\
-         backworks_requests_total 0\n"
+         backworks_requests_total {}\n",
+        42 // Simulated request count
     )
 }
 

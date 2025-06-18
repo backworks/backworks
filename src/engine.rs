@@ -2,15 +2,15 @@ use std::sync::Arc;
 use tokio::signal;
 use tracing::{info, error};
 
-use crate::config::{BackworksConfig, ExecutionMode};
+use crate::config::BackworksConfig;
 use crate::server::BackworksServer;
 use crate::dashboard::Dashboard;
 use crate::database::DatabaseManager;
-use crate::runtime::{RuntimeManager, RuntimeManagerConfig};
+use crate::runtime::RuntimeManager;
 use crate::plugin::PluginManager;
 use crate::plugins::ai::AIPlugin;
 use crate::resilience::ResilientPluginConfig;
-use crate::error::{BackworksError, Result};
+use crate::error::Result;
 
 pub struct BackworksEngine {
     config: Arc<BackworksConfig>,

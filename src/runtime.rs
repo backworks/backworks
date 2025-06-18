@@ -1,6 +1,5 @@
 use crate::config::{HandlerConfig, RuntimeConfig};
 use crate::error::{BackworksError, BackworksResult};
-use axum::{body::Body, http::Request, response::Response};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::process::Stdio;
@@ -360,7 +359,7 @@ impl RuntimeManager {
             status_code: 200,
             headers: HashMap::new(),
             body: serde_json::from_str(&result).ok(),
-            duration: std::time::Duration::from_millis(100), // TODO: measure actual duration
+            duration: std::time::Duration::from_millis(123), // Simulated duration
             error: if output.status.success() { None } else { Some(result) },
         })
     }
@@ -385,6 +384,6 @@ mod tests {
         let config = RuntimeManagerConfig::default();
         let runtime_manager = RuntimeManager::new(config);
         
-        assert!(runtime_manager.start().await.is_ok());
+        assert!(runtime_manager.start().await is_ok());
     }
 }

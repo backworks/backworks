@@ -1,22 +1,10 @@
 use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 
-mod config;
-mod engine;
-mod server;
-mod ai;
-mod dashboard;
-mod runtime;
-mod database;
-mod capture;
-mod proxy;
-mod mock;
-mod error;
-
-use engine::BackworksEngine;
-use error::BackworksError;
-
-type Result<T> = std::result::Result<T, BackworksError>;
+use backworks::{
+    BackworksEngine, BackworksError, Result,
+    config, capture
+};
 
 #[derive(Parser)]
 #[command(name = "backworks")]
@@ -155,8 +143,13 @@ async fn validate_config(config_path: PathBuf) -> Result<()> {
             println!("   Name: {}", config.name);
             println!("   Mode: {:?}", config.mode);
             println!("   Endpoints: {}", config.endpoints.len());
-            if config.ai.enabled {
-                println!("   AI: Enabled");
+            if !config.plugins.is_empty() {
+                println!("   Plugins: {} configured", config.plugins.len());
+                for (name, plugin_config) in &config.plugins {
+                    if plugin_config.enabled {
+                        println!("     - {} (enabled)", name);
+                    }
+                }
             }
             if config.dashboard.is_some() {
                 println!("   Dashboard: Enabled");
@@ -218,8 +211,8 @@ async fn start_capture_mode(port: u16, output: PathBuf, duration: Option<u64>) -
 async fn generate_config(input: PathBuf, output: PathBuf) -> Result<()> {
     println!("🔄 Generating configuration from captured data...");
     
-    let generator = capture::ConfigGenerator::new();
-    generator.generate_from_file(input, output).await?;
+    let capturer = capture::Capturer::new(8080, output.to_string_lossy().to_string());
+    capturer.generate_from_file(input, output).await?;
     
     println!("✅ Configuration generated successfully");
     Ok(())

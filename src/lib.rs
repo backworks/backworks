@@ -12,7 +12,6 @@ pub mod engine;
 pub mod server;
 pub mod error;
 pub mod mock;
-pub mod ai;
 pub mod plugin;
 pub mod plugins;
 pub mod resilience;

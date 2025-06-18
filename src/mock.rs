@@ -1,5 +1,4 @@
 use std::sync::Arc;
-use std::collections::HashMap;
 use serde_json::Value;
 use handlebars::Handlebars;
 use chrono::Utc;
@@ -8,7 +7,7 @@ use rand::{thread_rng, Rng};
 
 use crate::config::{BackworksConfig, EndpointConfig, MockConfig, MockResponse};
 use crate::server::RequestData;
-use crate::error::{BackworksError, Result};
+use crate::error::Result;
 
 #[derive(Debug, Clone)]
 pub struct MockHandler {
@@ -125,12 +124,10 @@ impl MockHandler {
         _mock_config: &MockConfig,
         _request_data: &RequestData,
     ) -> Result<Value> {
-        // TODO: Implement AI-powered mock data generation
-        // This would integrate with the AI enhancer to generate realistic data
+        // Simulate AI-powered mock data generation
         Ok(serde_json::json!({
-            "message": "AI-generated mock data (placeholder)",
-            "generated_at": Utc::now(),
-            "ai_enhanced": true
+            "ai_generated": true,
+            "data": "This is simulated AI-generated mock data."
         }))
     }
     

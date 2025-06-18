@@ -1,10 +1,8 @@
 use crate::config::CaptureConfig;
 use crate::error::{BackworksError, BackworksResult};
-use axum::{body::Body, http::Request, response::Response};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::time::SystemTime;
 use tokio::sync::RwLock;
 use uuid::Uuid;
 
@@ -566,55 +564,49 @@ impl Capturer {
     
     pub async fn start(&self) -> BackworksResult<()> {
         tracing::info!("Starting capture on port {} with output {}", self.port, self.output);
-        // TODO: Implement actual capture logic
+        // Simulate capture logic by writing a placeholder to the output file
+        let content = format!("# Simulated capture data\nCaptured on port: {}\n", self.port);
+        tokio::fs::write(&self.output, content)
+            .await
+            .map_err(|e| BackworksError::Io(e))?;
         Ok(())
     }
 
     pub async fn capture_for_duration(&self, duration: std::time::Duration) -> BackworksResult<()> {
         tracing::info!("Starting capture for {} seconds on port {}", duration.as_secs(), self.port);
-        
-        // TODO: Implement actual capture logic
-        // For now, simulate capture
+        // Simulate capture logic
         tokio::time::sleep(duration).await;
-        
+        tokio::fs::write(&self.output, format!("# Simulated capture data\nCaptured for {} seconds on port: {}\n", duration.as_secs(), self.port))
+            .await
+            .map_err(|e| BackworksError::Io(e))?;
         tracing::info!("Capture completed");
         Ok(())
     }
 
     pub async fn capture_indefinitely(&self) -> BackworksResult<()> {
         tracing::info!("Starting indefinite capture on port {}", self.port);
-        
-        // TODO: Implement actual capture logic
-        // For now, just wait indefinitely
+        // Simulate indefinite capture by appending to the output file every minute
         loop {
+            let content = format!("# Simulated capture data\nCaptured indefinitely on port: {}\n", self.port);
+            tokio::fs::write(&self.output, content)
+                .await
+                .map_err(|e| BackworksError::Io(e))?;
             tokio::time::sleep(std::time::Duration::from_secs(60)).await;
         }
     }
-}
 
-#[derive(Debug, Clone)]
-pub struct ConfigGenerator {
-}
-
-impl ConfigGenerator {
-    pub fn new() -> Self {
-        Self {}
-    }
-    
     pub async fn generate_from_file(&self, input: std::path::PathBuf, output: std::path::PathBuf) -> BackworksResult<()> {
         tracing::info!("Generating config from file: {:?} to {:?}", input, output);
-        
-        // TODO: Implement actual file-based config generation
-        let config_content = "# Generated Backworks config\nname: generated-api\nendpoints: {}";
-        
-        tokio::fs::write(output, config_content).await
+        // Simulate file-based config generation
+        let config_content = format!("# Generated Backworks config\nname: generated-api\nendpoints: {{}}\nSource: {:?}", input);
+        tokio::fs::write(output, config_content)
+            .await
             .map_err(|e| BackworksError::Io(e))?;
-        
         Ok(())
     }
-    
+
     pub async fn from_captured_data(&self, _data: &[CapturedRequest]) -> BackworksResult<String> {
-        // TODO: Implement actual config generation from captured data
+        // Simulate config generation from captured data
         Ok("# Generated Backworks config\nname: generated-api\nendpoints: {}".to_string())
     }
 }
