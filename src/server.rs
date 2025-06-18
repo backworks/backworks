@@ -1,0 +1,412 @@
+use std::sync::Arc;
+use axum::{
+    Router,
+    routing::{get, post, put, delete, any},
+    response::Json,
+    extract::{Path, Query, State},
+    http::{StatusCode, HeaderMap, Method},
+    middleware,
+};
+use tower::ServiceBuilder;
+use tower_http::{
+    cors::{CorsLayer, Any, AllowOrigin},
+    trace::TraceLayer,
+};
+use serde_json::Value;
+use serde::{Serialize, Deserialize};
+use std::collections::HashMap;
+use tracing::{info, debug, error};
+
+use crate::config::{BackworksConfig, ExecutionMode};
+use crate::ai::AIEnhancer;
+use crate::database::DatabaseManager;
+use crate::runtime::RuntimeManager;
+use crate::mock::MockHandler;
+use crate::proxy::ProxyHandler;
+use crate::capture::CaptureHandler;
+use crate::error::{BackworksError, Result};
+
+#[derive(Clone)]
+pub struct AppState {
+    pub config: Arc<BackworksConfig>,
+    pub ai_enhancer: Option<AIEnhancer>,
+    pub database_manager: Option<DatabaseManager>,
+    pub runtime_manager: RuntimeManager,
+    pub mock_handler: MockHandler,
+    pub proxy_handler: Option<ProxyHandler>,
+    pub capture_handler: Option<CaptureHandler>,
+}
+
+pub struct BackworksServer {
+    state: AppState,
+}
+
+impl BackworksServer {
+    pub fn new(
+        config: Arc<BackworksConfig>,
+        ai_enhancer: Option<AIEnhancer>,
+        database_manager: Option<DatabaseManager>,
+        runtime_manager: RuntimeManager,
+    ) -> Result<Self> {
+        let mock_handler = MockHandler::new(config.clone());
+        
+        let proxy_handler = if matches!(config.mode, ExecutionMode::Proxy | ExecutionMode::Hybrid) {
+            // Create a default proxy config for now
+            let proxy_config = crate::config::ProxyConfig {
+                target: "http://localhost:8081".to_string(),
+                targets: None,
+                strip_prefix: None,
+                timeout: Some(30),
+                transform_request: None,
+                transform_response: None,
+                health_checks: Some(false),
+                load_balancing: None,
+                headers: None,
+            };
+            Some(ProxyHandler::new(proxy_config))
+        } else {
+            None
+        };
+        
+        let capture_handler = if matches!(config.mode, ExecutionMode::Capture) {
+            // Create a default capture config for now
+            let capture_config = crate::config::CaptureConfig {
+                analyze: Some(true),
+                learn_schema: Some(true),
+                enabled: Some(true),
+                auto_start: Some(false),
+                include_patterns: None,
+                exclude_patterns: None,
+                methods: None,
+            };
+            Some(CaptureHandler::new(capture_config))
+        } else {
+            None
+        };
+        
+        let state = AppState {
+            config,
+            ai_enhancer,
+            database_manager,
+            runtime_manager,
+            mock_handler,
+            proxy_handler,
+            capture_handler,
+        };
+        
+        Ok(Self { state })
+    }
+    
+    pub async fn start(self) -> Result<()> {
+        let app = self.create_app();
+        
+        let listener = tokio::net::TcpListener::bind(
+            format!("{}:{}", self.state.config.server.host, self.state.config.server.port)
+        ).await?;
+        
+        info!("🌐 API server listening on {}", listener.local_addr()?);
+        
+        axum::serve(listener, app).await?;
+        
+        Ok(())
+    }
+    
+    fn create_app(&self) -> Router {
+        let mut app = Router::new();
+        
+        // Add global middleware
+        app = app.layer(
+            ServiceBuilder::new()
+                .layer(TraceLayer::new_for_http())
+                .layer(self.create_cors_layer())
+                .layer(middleware::from_fn_with_state(
+                    self.state.clone(),
+                    request_middleware,
+                ))
+        );
+        
+        // Add health check endpoint
+        app = app.route("/health", get(health_check));
+        
+        // Add metrics endpoint if monitoring is enabled
+        if let Some(ref monitoring) = self.state.config.monitoring {
+            if let Some(ref metrics) = monitoring.metrics {
+                if metrics.enabled.unwrap_or(false) {
+                    let endpoint = metrics.export_endpoint.as_deref().unwrap_or("/metrics");
+                    app = app.route(endpoint, get(metrics_handler));
+                }
+            }
+        }
+        
+        // Add dynamic endpoints based on configuration
+        for (name, endpoint_config) in &self.state.config.endpoints {
+            let path = &endpoint_config.path;
+            debug!("Registering endpoint: {} -> {}", name, path);
+            
+            // Create handler for each HTTP method
+            for method in &endpoint_config.methods {
+                let handler = create_endpoint_handler(method.clone(), name.clone());
+                
+                app = match method.as_str() {
+                    "GET" => app.route(path, get(handler)),
+                    "POST" => app.route(path, post(handler)),
+                    "PUT" => app.route(path, put(handler)),
+                    "DELETE" => app.route(path, delete(handler)),
+                    "PATCH" => app.route(path, axum::routing::patch(handler)),
+                    _ => app.route(path, any(handler)),
+                };
+            }
+        }
+        
+        app.with_state(self.state.clone())
+    }
+    
+    fn create_cors_layer(&self) -> CorsLayer {
+        let mut cors = CorsLayer::new();
+        
+        if let Some(ref security) = self.state.config.security {
+            if let Some(ref cors_config) = security.cors {
+                if cors_config.enabled.unwrap_or(false) {
+                    if let Some(ref origins) = cors_config.origins {
+                        for origin in origins {
+                            // Parse as HeaderValue and create AllowOrigin
+                            if let Ok(header_value) = origin.parse::<http::HeaderValue>() {
+                                let allow_origin = tower_http::cors::AllowOrigin::exact(header_value);
+                                cors = cors.allow_origin(allow_origin);
+                            }
+                        }
+                    } else {
+                        cors = cors.allow_origin(Any);
+                    }
+                    
+                    if let Some(ref methods) = cors_config.methods {
+                        let parsed_methods: Vec<Method> = methods
+                            .iter()
+                            .filter_map(|m| m.parse().ok())
+                            .collect();
+                        cors = cors.allow_methods(parsed_methods);
+                    }
+                    
+                    if let Some(ref headers) = cors_config.headers {
+                        for header in headers {
+                            cors = cors.allow_headers([header.parse().unwrap()]);
+                        }
+                    }
+                    
+                    if cors_config.credentials.unwrap_or(false) {
+                        cors = cors.allow_credentials(true);
+                    }
+                }
+            }
+        }
+        
+        cors
+    }
+}
+
+// Middleware for request processing and AI enhancement
+async fn request_middleware(
+    State(state): State<AppState>,
+    mut request: axum::extract::Request,
+    next: axum::middleware::Next,
+) -> axum::response::Response {
+    let start_time = std::time::Instant::now();
+    
+    // AI analysis if enabled
+    if let Some(ref ai) = state.ai_enhancer {
+        // Analyze request patterns
+        let request_summary = format!("{} {}", request.method(), request.uri().path());
+        if let Err(e) = ai.analyze_request(&request_summary).await {
+            error!("AI request analysis failed: {}", e);
+        }
+    }
+    
+    // Process request through middleware chain
+    let response = next.run(request).await;
+    
+    let duration = start_time.elapsed();
+    debug!("Request processed in {:?}", duration);
+    
+    response
+}
+
+// Create handler function for specific endpoint and method
+fn create_endpoint_handler(
+    method: String,
+    endpoint_name: String,
+) -> impl Fn(State<AppState>, Path<HashMap<String, String>>, Query<HashMap<String, String>>, HeaderMap, Option<axum::extract::Json<Value>>) -> std::pin::Pin<Box<dyn std::future::Future<Output = axum::response::Result<(StatusCode, Json<Value>)>> + Send>> + Clone + Send + Sync + 'static {
+    move |state, path, query, headers, body| {
+        let method = method.clone();
+        let endpoint_name = endpoint_name.clone();
+        
+        Box::pin(async move {
+            handle_endpoint_request(state, method, endpoint_name, path, query, headers, body).await
+        })
+    }
+}
+
+// Main endpoint request handler
+async fn handle_endpoint_request(
+    State(state): State<AppState>,
+    method: String,
+    endpoint_name: String,
+    Path(path_params): Path<HashMap<String, String>>,
+    Query(query_params): Query<HashMap<String, String>>,
+    headers: HeaderMap,
+    body: Option<axum::extract::Json<Value>>,
+) -> axum::response::Result<(StatusCode, Json<Value>)> {
+    debug!("Handling {} request to endpoint: {}", method, endpoint_name);
+    
+    let endpoint_config = match state.config.endpoints.get(&endpoint_name) {
+        Some(config) => config,
+        None => {
+            return Ok((
+                StatusCode::NOT_FOUND,
+                Json(serde_json::json!({"error": "Endpoint not found"}))
+            ));
+        }
+    };
+    
+    // Determine execution mode for this endpoint
+    let mode = endpoint_config.mode.as_ref().unwrap_or(&state.config.mode);
+    
+    let request_data = crate::server::RequestData {
+        method: method.clone(),
+        path_params,
+        query_params,
+        headers: headers.clone(),
+        body: body.map(|b| b.0),
+    };
+
+    // Serialize request data for handlers that need string representation
+    let request_data_json = serde_json::to_string(&request_data)
+        .map_err(|e| BackworksError::Json(e))?;
+    
+    let result = match mode {
+        ExecutionMode::Mock => {
+            let mock_result = state.mock_handler.handle_request(&endpoint_name, endpoint_config, &request_data).await?;
+            Ok(serde_json::to_string(&mock_result).map_err(|e| BackworksError::Json(e))?)
+        }
+        ExecutionMode::Runtime => {
+            if let Some(ref runtime_config) = endpoint_config.runtime {
+                state.runtime_manager.handle_request(runtime_config, &request_data_json).await
+            } else {
+                // Fallback to mock if no runtime configured
+                let mock_result = state.mock_handler.handle_request(&endpoint_name, endpoint_config, &request_data).await?;
+                Ok(serde_json::to_string(&mock_result).map_err(|e| BackworksError::Json(e))?)
+            }
+        }
+        ExecutionMode::Database => {
+            if let Some(ref db_manager) = state.database_manager {
+                if let Some(ref db_config) = endpoint_config.database {
+                    // Convert EndpointDatabaseConfig to DatabaseConfig for now
+                    let full_db_config = crate::config::DatabaseConfig {
+                        db_type: "sqlite".to_string(), // Default type
+                        connection_string: None,
+                        connection_string_env: Some("DATABASE_URL".to_string()),
+                        pool: None,
+                        databases: None,
+                    };
+                    db_manager.handle_request(&method, &full_db_config, &request_data_json).await
+                } else {
+                    Err(BackworksError::config("Database mode requires database configuration"))
+                }
+            } else {
+                Err(BackworksError::config("Database mode requires database manager"))
+            }
+        }
+        ExecutionMode::Proxy => {
+            if let Some(ref proxy_handler) = state.proxy_handler {
+                if let Some(ref proxy_config) = endpoint_config.proxy {
+                    proxy_handler.handle_request(proxy_config, &request_data).await
+                } else {
+                    Err(BackworksError::config("Proxy mode requires proxy configuration"))
+                }
+            } else {
+                Err(BackworksError::config("Proxy mode requires proxy handler"))
+            }
+        }
+        ExecutionMode::Capture => {
+            if let Some(ref capture_handler) = state.capture_handler {
+                capture_handler.handle_request(&endpoint_name, &request_data).await
+            } else {
+                Err(BackworksError::config("Capture mode requires capture handler"))
+            }
+        }
+        ExecutionMode::Hybrid => {
+            // Try different modes based on configuration priority
+            if let Some(ref runtime_config) = endpoint_config.runtime {
+                state.runtime_manager.handle_request(runtime_config, &request_data_json).await
+            } else if endpoint_config.database.is_some() && state.database_manager.is_some() {
+                let db_manager = state.database_manager.as_ref().unwrap();
+                let _db_config = endpoint_config.database.as_ref().unwrap();
+                // Convert EndpointDatabaseConfig to DatabaseConfig for now
+                let full_db_config = crate::config::DatabaseConfig {
+                    db_type: "sqlite".to_string(), // Default type
+                    connection_string: None,
+                    connection_string_env: Some("DATABASE_URL".to_string()),
+                    pool: None,
+                    databases: None,
+                };
+                db_manager.handle_request(&method, &full_db_config, &request_data_json).await
+            } else if endpoint_config.proxy.is_some() && state.proxy_handler.is_some() {
+                let proxy_handler = state.proxy_handler.as_ref().unwrap();
+                let proxy_config = endpoint_config.proxy.as_ref().unwrap();
+                proxy_handler.handle_request(proxy_config, &request_data).await
+            } else {
+                let mock_result = state.mock_handler.handle_request(&endpoint_name, endpoint_config, &request_data).await?;
+                Ok(serde_json::to_string(&mock_result).map_err(|e| BackworksError::Json(e))?)
+            }
+        }
+        ExecutionMode::Evolving => {
+            // For now, use mock mode (evolution logic would be implemented later)
+            let mock_result = state.mock_handler.handle_request(&endpoint_name, endpoint_config, &request_data).await?;
+            Ok(serde_json::to_string(&mock_result).map_err(|e| BackworksError::Json(e))?)
+        }
+    };
+    
+    match result {
+        Ok(response) => {
+            // Parse the JSON string response to a Value for proper JSON response
+            let json_value: serde_json::Value = serde_json::from_str(&response)
+                .unwrap_or_else(|_| serde_json::json!({"response": response}));
+            Ok((StatusCode::OK, Json(json_value)))
+        },
+        Err(e) => {
+            error!("Request handling error: {}", e);
+            Ok((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({"error": e.to_string()}))
+            ))
+        }
+    }
+}
+
+// Health check endpoint
+async fn health_check() -> Json<Value> {
+    Json(serde_json::json!({
+        "status": "healthy",
+        "timestamp": chrono::Utc::now(),
+        "version": env!("CARGO_PKG_VERSION")
+    }))
+}
+
+// Metrics endpoint
+async fn metrics_handler() -> String {
+    // TODO: Implement proper metrics collection
+    format!(
+        "# HELP backworks_requests_total Total number of requests\n\
+         # TYPE backworks_requests_total counter\n\
+         backworks_requests_total 0\n"
+    )
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RequestData {
+    pub method: String,
+    pub path_params: HashMap<String, String>,
+    pub query_params: HashMap<String, String>,
+    #[serde(skip)] // HeaderMap doesn't implement Serialize
+    pub headers: HeaderMap,
+    pub body: Option<Value>,
+}

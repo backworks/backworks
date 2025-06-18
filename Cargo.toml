@@ -1,0 +1,87 @@
+[package]
+name = "backworks"
+version = "0.1.0"
+edition = "2021"
+authors = ["DevStroop <dev@devstroop.com>"]
+description = "Configuration-driven API platform that works backwards from your needs"
+repository = "https://github.com/devstroop/backworks"
+license = "MIT"
+keywords = ["api", "configuration", "ai", "reverse-engineering", "mock"]
+categories = ["web-programming", "development-tools", "api-bindings"]
+
+[[bin]]
+name = "backworks"
+path = "src/main.rs"
+
+[dependencies]
+# Core framework
+tokio = { version = "1.0", features = ["full"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+serde_yaml = "0.9"
+
+# Web framework
+axum = { version = "0.7", features = ["macros", "ws"] }
+tower = { version = "0.4", features = ["full"] }
+tower-http = { version = "0.5", features = ["cors", "trace"] }
+hyper = { version = "1.0", features = ["full"] }
+
+# HTTP client for external APIs
+reqwest = { version = "0.11", features = ["json", "stream"] }
+
+# Configuration and templates
+handlebars = "4.0"
+regex = "1.0"
+uuid = { version = "1.0", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+url = "2.4"
+glob = "0.3"
+rand = "0.8"
+
+# Database support
+sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "postgres", "mysql", "sqlite", "chrono", "uuid"], optional = true }
+redis = { version = "0.24", features = ["tokio-comp"], optional = true }
+
+# AI/ML dependencies - temporarily disabled due to version conflicts
+# candle-core = { version = "0.3", optional = true }
+# candle-nn = { version = "0.3", optional = true }
+# ort = { version = "1.16", optional = true }  # ONNX Runtime
+
+# CLI
+clap = { version = "4.0", features = ["derive"] }
+colored = "2.0"
+
+# Logging and monitoring
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+metrics = "0.21"
+metrics-exporter-prometheus = "0.12"
+
+# Async and utilities
+futures = "0.3"
+dashmap = "5.0"
+once_cell = "1.0"
+anyhow = "1.0"
+thiserror = "1.0"
+
+# WebSocket for dashboard
+tungstenite = "0.20"
+tokio-stream = "0.1"
+http = "1.0"
+
+[dev-dependencies]
+tokio-test = "0.4"
+pretty_assertions = "1.0"
+
+[features]
+default = ["dashboard", "database"]
+dashboard = []
+# AI features temporarily disabled due to dependency conflicts
+# ai = ["candle-core", "candle-nn", "ort"]
+database = ["sqlx", "redis"]
+minimal = []
+
+[profile.release]
+lto = true
+codegen-units = 1
+panic = "abort"

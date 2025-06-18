@@ -1,0 +1,131 @@
+# Rust
+/target/
+Cargo.lock
+**/*.rs.bk
+*.pdb
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+database.db
+test.db
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.temp
+
+# Build artifacts
+dist/
+build/
+out/
+
+# Node.js (for dashboard frontend)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Coverage reports
+coverage/
+*.lcov
+
+# Benchmarks
+benchmarks/
+
+# Generated documentation
+doc/
+docs/target/
+
+# Test artifacts
+test-results/
+*.test
+*.spec
+
+# Local configuration overrides
+config.local.yaml
+backworks.local.yaml
+local.yaml
+
+# Generated files
+generated/
+*.generated.*
+
+# Cache
+.cache/
+.parcel-cache/
+
+# Lock files (except Cargo.lock for binaries)
+package-lock.json
+yarn.lock
+
+# Editor backups
+*.bak
+*.backup
+*~
+
+# Profiling
+*.prof
+perf.data*
+
+# AI model files (can be large)
+*.model
+*.onnx
+models/
+checkpoints/
+
+# Certificate files
+*.pem
+*.key
+*.crt
+*.cert
+
+# Backup files
+*.backup
+*.bak
+*.orig
+
+# Custom ignores for Backworks
+examples/*/database.db
+examples/*/test.db
+examples/*/logs/
+dashboard/node_modules/
+dashboard/dist/

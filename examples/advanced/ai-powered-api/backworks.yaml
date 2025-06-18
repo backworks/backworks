@@ -1,0 +1,262 @@
+name: ai-powered-user-api
+version: 1.0.0
+description: "Advanced API with AI features, database integration, and multi-runtime handlers"
+
+# Server configuration
+server:
+  host: 0.0.0.0
+  port: 3000
+  cors: true
+
+# Global execution mode (endpoints can override)
+mode: hybrid
+
+# AI configuration
+ai:
+  enabled: true
+  features:
+    pattern_recognition: true
+    schema_prediction: true
+    anomaly_detection: true
+    intelligent_mocking: true
+  models:
+    recommendation_engine: "./models/user_recommendations.onnx"
+
+# Dashboard configuration
+dashboard:
+  enabled: true
+  port: 3001
+  auto_open: true
+
+# Database configuration
+database:
+  default:
+    type: sqlite
+    database: users.db
+    pool_size: 10
+
+# Runtime configuration
+runtime:
+  timeout: 30s
+  max_memory: 512MB
+  handlers:
+    python_recommendations:
+      runtime: python3
+      script: ./handlers/recommendations.py
+      timeout: 10s
+      environment:
+        MODEL_PATH: "./models/user_recommendations.onnx"
+    
+    nodejs_analytics:
+      runtime: node
+      script: ./handlers/analytics.js
+      timeout: 5s
+
+# Capture configuration for API evolution
+capture:
+  enabled: true
+  auto_start: true
+  include_patterns:
+    - "/users/*"
+    - "/analytics/*"
+  exclude_patterns:
+    - "/health"
+    - "/metrics"
+
+# API Endpoints
+endpoints:
+  # User CRUD operations (hybrid mode - starts mock, evolves to database)
+  - path: /users
+    method: GET
+    mode: auto_evolve  # Starts as mock, becomes database when data exists
+    description: "Get all users with optional filtering"
+    mock:
+      status: 200
+      headers:
+        Content-Type: application/json
+      body: |
+        [
+          {
+            "id": 1,
+            "name": "{{ faker.name }}",
+            "email": "{{ faker.email }}",
+            "age": {{ random 18 65 }},
+            "created_at": "{{ timestamp }}"
+          },
+          {
+            "id": 2,
+            "name": "{{ faker.name }}",
+            "email": "{{ faker.email }}",
+            "age": {{ random 18 65 }},
+            "created_at": "{{ timestamp }}"
+          }
+        ]
+    database:
+      query: "SELECT * FROM users ORDER BY created_at DESC"
+      params: []
+    
+  - path: /users/{id}
+    method: GET
+    mode: auto_evolve
+    description: "Get user by ID"
+    mock:
+      status: 200
+      headers:
+        Content-Type: application/json
+      body: |
+        {
+          "id": {{ path.id }},
+          "name": "{{ faker.name }}",
+          "email": "{{ faker.email }}",
+          "age": {{ random 18 65 }},
+          "created_at": "{{ timestamp }}"
+        }
+    database:
+      query: "SELECT * FROM users WHERE id = $1"
+      params: ["{{ path.id }}"]
+
+  - path: /users
+    method: POST
+    mode: database
+    description: "Create a new user"
+    database:
+      query: "INSERT INTO users (name, email, age) VALUES ($1, $2, $3) RETURNING *"
+      params: ["{{ body.name }}", "{{ body.email }}", "{{ body.age }}"]
+    validation:
+      required: ["name", "email"]
+      schema:
+        name:
+          type: string
+          min_length: 2
+          max_length: 100
+        email:
+          type: email
+        age:
+          type: integer
+          min: 13
+          max: 120
+
+  - path: /users/{id}
+    method: PUT
+    mode: database
+    description: "Update user by ID"
+    database:
+      query: "UPDATE users SET name = $1, email = $2, age = $3 WHERE id = $4 RETURNING *"
+      params: ["{{ body.name }}", "{{ body.email }}", "{{ body.age }}", "{{ path.id }}"]
+
+  - path: /users/{id}
+    method: DELETE
+    mode: database
+    description: "Delete user by ID"
+    database:
+      query: "DELETE FROM users WHERE id = $1"
+      params: ["{{ path.id }}"]
+
+  # AI-powered recommendations (runtime handler)
+  - path: /users/recommendations
+    method: GET
+    mode: runtime
+    description: "Get AI-powered user recommendations"
+    runtime:
+      handler: python_recommendations
+    cache:
+      ttl: 300  # 5 minutes
+
+  - path: /users/{id}/recommendations
+    method: GET
+    mode: runtime
+    description: "Get personalized recommendations for a user"
+    runtime:
+      handler: python_recommendations
+
+  # Analytics endpoints (Node.js runtime)
+  - path: /analytics/users
+    method: GET
+    mode: runtime
+    description: "Get user analytics and insights"
+    runtime:
+      handler: nodejs_analytics
+
+  - path: /analytics/patterns
+    method: GET
+    mode: runtime
+    description: "Get AI-detected usage patterns"
+    runtime:
+      handler: nodejs_analytics
+
+  # Hybrid endpoint that demonstrates intelligent mode selection
+  - path: /users/search
+    method: GET
+    mode: intelligent  # AI decides between mock/database/runtime based on query complexity
+    description: "Search users with intelligent query routing"
+    mock:
+      condition: "{{ not query.q }}"  # Use mock if no search query
+      status: 200
+      body: |
+        {
+          "results": [],
+          "total": 0,
+          "message": "Please provide a search query with ?q=..."
+        }
+    database:
+      condition: "{{ query.q and len(query.q) < 20 }}"  # Simple queries use database
+      query: "SELECT * FROM users WHERE name ILIKE $1 OR email ILIKE $1"
+      params: ["%{{ query.q }}%"]
+    runtime:
+      condition: "{{ query.q and len(query.q) >= 20 }}"  # Complex queries use AI
+      handler: python_recommendations
+
+  # Health check endpoint
+  - path: /health
+    method: GET
+    mode: mock
+    description: "Health check endpoint"
+    mock:
+      status: 200
+      headers:
+        Content-Type: application/json
+      body: |
+        {
+          "status": "healthy",
+          "timestamp": "{{ timestamp }}",
+          "uptime": "{{ uptime }}",
+          "version": "1.0.0"
+        }
+
+# Middleware configuration
+middleware:
+  - name: request_logging
+    enabled: true
+  - name: rate_limiting
+    enabled: true
+    config:
+      requests_per_minute: 100
+  - name: ai_analysis
+    enabled: true
+    config:
+      capture_patterns: true
+      anomaly_detection: true
+
+# External API integration (proxy mode)
+external_apis:
+  jsonplaceholder:
+    base_url: https://jsonplaceholder.typicode.com
+    endpoints:
+      - path: /external/posts
+        proxy_to: /posts
+        mode: proxy
+        cache:
+          ttl: 600  # 10 minutes
+      - path: /external/posts/{id}
+        proxy_to: /posts/{id}
+        mode: proxy
+
+# Monitoring and alerts
+monitoring:
+  metrics:
+    enabled: true
+    endpoint: /metrics
+  alerts:
+    response_time_threshold: 1000  # ms
+    error_rate_threshold: 0.05     # 5%
+    ai_anomaly_alerts: true
