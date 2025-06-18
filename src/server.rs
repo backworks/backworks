@@ -21,7 +21,6 @@ use tracing::{info, debug, error};
 use crate::config::{BackworksConfig, ExecutionMode};
 use crate::database::DatabaseManager;
 use crate::runtime::RuntimeManager;
-use crate::mock::MockHandler;
 use crate::proxy::ProxyHandler;
 use crate::plugin::PluginManager;
 use crate::error::{BackworksError, Result};
@@ -32,8 +31,6 @@ pub struct AppState {
     pub plugin_manager: PluginManager,
     pub database_manager: Option<DatabaseManager>,
     pub runtime_manager: RuntimeManager,
-    pub mock_handler: MockHandler,
-    pub proxy_handler: Option<ProxyHandler>,
 }
 
 pub struct BackworksServer {
@@ -46,40 +43,15 @@ impl BackworksServer {
         database_manager: Option<DatabaseManager>,
         plugin_manager: PluginManager,
     ) -> Result<Self> {
-        let mock_handler = MockHandler::new(config.clone());
-        
         // Initialize runtime manager
         let runtime_config = crate::runtime::RuntimeManagerConfig::default();
         let runtime_manager = RuntimeManager::new(runtime_config);
-        
-        let proxy_handler = if matches!(config.mode, ExecutionMode::Proxy) {
-            // Create a default proxy config for now
-            let proxy_config = crate::config::ProxyConfig {
-                target: "http://localhost:8081".to_string(),
-                targets: None,
-                strip_prefix: None,
-                timeout: Some(30),
-                transform_request: None,
-                transform_response: None,
-                health_checks: Some(false),
-                load_balancing: None,
-                headers: None,
-                capture: None, // Capture can be enabled per endpoint
-            };
-            Some(ProxyHandler::new(proxy_config))
-        } else {
-            None
-        };
-        
-        // Remove standalone capture handler - it's now integrated into proxy
         
         let state = AppState {
             config,
             plugin_manager,
             database_manager,
             runtime_manager,
-            mock_handler,
-            proxy_handler,
         };
         
         Ok(Self { state })
@@ -272,17 +244,11 @@ async fn handle_endpoint_request(
         .map_err(|e| BackworksError::Json(e))?;
     
     let result = match mode {
-        ExecutionMode::Mock => {
-            let mock_result = state.mock_handler.handle_request(&endpoint_name, endpoint_config, &request_data).await?;
-            Ok(serde_json::to_string(&mock_result).map_err(|e| BackworksError::Json(e))?)
-        }
         ExecutionMode::Runtime => {
             if let Some(ref runtime_config) = endpoint_config.runtime {
                 state.runtime_manager.handle_request(runtime_config, &request_data_json).await
             } else {
-                // Fallback to mock if no runtime configured
-                let mock_result = state.mock_handler.handle_request(&endpoint_name, endpoint_config, &request_data).await?;
-                Ok(serde_json::to_string(&mock_result).map_err(|e| BackworksError::Json(e))?)
+                Err(BackworksError::config("Runtime mode requires runtime configuration"))
             }
         }
         ExecutionMode::Database => {
@@ -305,59 +271,13 @@ async fn handle_endpoint_request(
             }
         }
         ExecutionMode::Proxy => {
-            if let Some(ref proxy_handler) = state.proxy_handler {
-                if let Some(_proxy_config) = &endpoint_config.proxy {
-                    // Convert RequestData to HTTP Request<Body>
-                    let method = request_data.method.parse::<Method>()
-                        .map_err(|e| BackworksError::Proxy(format!("Invalid HTTP method: {}", e)))?;
-                    
-                    let mut request_builder = Request::builder()
-                        .method(method)
-                        .uri(format!("{}?{}", 
-                            request_data.path_params.get("path").unwrap_or(&"/".to_string()),
-                            serde_urlencoded::to_string(&request_data.query_params).unwrap_or_default()
-                        ));
-                    
-                    // Add headers
-                    for (key, value) in &request_data.headers {
-                        request_builder = request_builder.header(key, value);
-                    }
-                    
-                    // Create request body
-                    let body_bytes = if let Some(ref body_value) = request_data.body {
-                        serde_json::to_vec(body_value).unwrap_or_default()
-                    } else {
-                        Vec::new()
-                    };
-                    
-                    let request = request_builder
-                        .body(Body::from(body_bytes))
-                        .map_err(|e| BackworksError::Proxy(format!("Failed to build request: {}", e)))?;
-                    
-                    // Proxy the request and convert response to string
-                    match proxy_handler.handle_request(request).await {
-                        Ok(response) => {
-                            let status = response.status();
-                            let headers = response.headers().clone();
-                            let body_bytes = axum::body::to_bytes(response.into_body(), usize::MAX).await
-                                .map_err(|e| BackworksError::Proxy(format!("Failed to read proxy response: {}", e)))?;
-                            
-                            // For now, return a JSON response with the proxied data
-                            let response_json = serde_json::json!({
-                                "status": status.as_u16(),
-                                "headers": headers.iter().map(|(k, v)| (k.to_string(), v.to_str().unwrap_or("").to_string())).collect::<std::collections::HashMap<_, _>>(),
-                                "body": String::from_utf8_lossy(&body_bytes)
-                            });
-                            
-                            Ok(response_json.to_string())
-                        }
-                        Err(e) => Err(e),
-                    }
-                } else {
-                    Err(BackworksError::config("Proxy mode requires proxy configuration"))
-                }
+            if let Some(ref proxy_config) = endpoint_config.proxy {
+                // Create a proxy handler for this specific endpoint configuration
+                let proxy_handler = ProxyHandler::new(proxy_config.clone());
+                proxy_handler.start().await.map_err(|e| BackworksError::Proxy(format!("Failed to start proxy: {}", e)))?;
+                proxy_handler.handle_request_data(proxy_config, &request_data).await
             } else {
-                Err(BackworksError::config("Proxy mode requires proxy handler"))
+                Err(BackworksError::config("Proxy mode requires proxy configuration"))
             }
         }
         ExecutionMode::Plugin => {

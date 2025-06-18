@@ -1,10 +1,14 @@
+name: "Basic HTTP Proxy"
+version: "1.0.0"
+
 server:
   host: "0.0.0.0"
   port: 8080
 
 endpoints:
-  /api/users:
-    mode: Proxy
+  api_users:
+    path: "/api/users"
+    mode: proxy
     proxy:
       target: "https://jsonplaceholder.typicode.com"
       load_balancing:
@@ -17,8 +21,9 @@ endpoints:
         analyze: true
         learn_schema: true
 
-  /api/proxy/*path:
-    mode: Proxy  
+  api_proxy:
+    path: "/api/proxy/*path"
+    mode: proxy
     proxy:
       target: "https://httpbin.org"
       strip_prefix: "/api/proxy"

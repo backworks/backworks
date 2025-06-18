@@ -205,7 +205,7 @@ impl BackworksEngine {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::{ServerConfig, EndpointConfig, MockConfig};
+    use crate::config::{ServerConfig, EndpointConfig};
     use std::collections::HashMap;
     
     fn create_test_config() -> BackworksConfig {
@@ -215,17 +215,22 @@ mod tests {
             methods: vec!["GET".to_string()],
             description: None,
             mode: None,
-            mock: Some(MockConfig {
-                data: Some(serde_json::json!({"message": "test"})),
-                ai_generated: None,
-                based_on_patterns: None,
-                count: None,
-                patterns: None,
-            }),
+            mock: None,
             mock_responses: None,
             runtime: None,
             database: None,
-            proxy: None,
+            proxy: Some(crate::config::ProxyConfig {
+                target: "http://localhost:3000".to_string(),
+                targets: None,
+                strip_prefix: None,
+                timeout: Some(30),
+                transform_request: None,
+                transform_response: None,
+                health_checks: None,
+                load_balancing: None,
+                headers: None,
+                capture: None,
+            }),
             capture: None,
             ai_enhanced: None,
             ai_suggestions: None,
@@ -233,13 +238,14 @@ mod tests {
             parameters: None,
             validation: None,
             monitoring: None,
+            plugin: None,
         });
         
         BackworksConfig {
             name: "test_api".to_string(),
             description: None,
             version: None,
-            mode: ExecutionMode::Mock,
+            mode: ExecutionMode::Proxy,
             endpoints,
             server: ServerConfig::default(),
             ai: Default::default(),

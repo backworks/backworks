@@ -232,29 +232,20 @@ fn create_basic_template(name: &str) -> String {
 description: "A basic API created with Backworks"
 version: "1.0.0"
 
-mode: "mock"
+mode: "proxy"
 
 endpoints:
   users:
     path: "/users"
     methods: ["GET", "POST"]
-    mock:
-      data:
-        - id: 1
-          name: "John Doe"
-          email: "john@example.com"
-        - id: 2
-          name: "Jane Smith"
-          email: "jane@example.com"
+    proxy:
+      target: "https://jsonplaceholder.typicode.com"
           
   user_detail:
     path: "/users/{{id}}"
     methods: ["GET", "PUT", "DELETE"]
-    mock:
-      data:
-        id: "${{path.id}}"
-        name: "User ${{path.id}}"
-        email: "user${{path.id}}@example.com"
+    proxy:
+      target: "https://jsonplaceholder.typicode.com"
 
 dashboard:
   enabled: true
@@ -267,14 +258,14 @@ fn create_ai_template(name: &str) -> String {
 description: "An AI-enhanced API created with Backworks"
 version: "1.0.0"
 
-mode: "mock"
+mode: "plugin"
 
 ai:
   enabled: true
   features:
     - "pattern_recognition"
     - "schema_prediction"
-    - "mock_improvement"
+    - "traffic_analysis"
 
 endpoints:
   smart_endpoint:

@@ -1,5 +1,17 @@
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+pub enum ExecutionMode {
+    #[serde(rename = "runtime")]
+    Runtime,
+    #[serde(rename = "database")]
+    Database,
+    #[default]
+    #[serde(rename = "proxy")]
+    Proxy,
+    #[serde(rename = "plugin")]
+    Plugin,
+}tions::HashMap;
 use std::path::PathBuf;
 use crate::error::{BackworksError, Result};
 use crate::plugin::PluginConfig;

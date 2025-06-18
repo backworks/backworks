@@ -97,7 +97,7 @@ async fn test_proxy_request_with_capture() {
     };
     
     // Handle the request (should capture and proxy)
-    let response = proxy_handler.handle_request(&proxy_config, &request_data).await.unwrap();
+    let response = proxy_handler.handle_request_data(&proxy_config, &request_data).await.unwrap();
     
     // Verify response structure
     let response_json: serde_json::Value = serde_json::from_str(&response).unwrap();
