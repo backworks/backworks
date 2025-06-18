@@ -4,7 +4,8 @@ use axum::{
     routing::{get, post, put, delete, any},
     response::Json,
     extract::{Path, Query, State},
-    http::{StatusCode, HeaderMap, Method},
+    http::{StatusCode, HeaderMap, Method, Request},
+    body::Body,
     middleware,
 };
 use tower::ServiceBuilder;
@@ -305,8 +306,53 @@ async fn handle_endpoint_request(
         }
         ExecutionMode::Proxy => {
             if let Some(ref proxy_handler) = state.proxy_handler {
-                if let Some(ref proxy_config) = endpoint_config.proxy {
-                    proxy_handler.handle_request(proxy_config, &request_data).await
+                if let Some(_proxy_config) = &endpoint_config.proxy {
+                    // Convert RequestData to HTTP Request<Body>
+                    let method = request_data.method.parse::<Method>()
+                        .map_err(|e| BackworksError::Proxy(format!("Invalid HTTP method: {}", e)))?;
+                    
+                    let mut request_builder = Request::builder()
+                        .method(method)
+                        .uri(format!("{}?{}", 
+                            request_data.path_params.get("path").unwrap_or(&"/".to_string()),
+                            serde_urlencoded::to_string(&request_data.query_params).unwrap_or_default()
+                        ));
+                    
+                    // Add headers
+                    for (key, value) in &request_data.headers {
+                        request_builder = request_builder.header(key, value);
+                    }
+                    
+                    // Create request body
+                    let body_bytes = if let Some(ref body_value) = request_data.body {
+                        serde_json::to_vec(body_value).unwrap_or_default()
+                    } else {
+                        Vec::new()
+                    };
+                    
+                    let request = request_builder
+                        .body(Body::from(body_bytes))
+                        .map_err(|e| BackworksError::Proxy(format!("Failed to build request: {}", e)))?;
+                    
+                    // Proxy the request and convert response to string
+                    match proxy_handler.handle_request(request).await {
+                        Ok(response) => {
+                            let status = response.status();
+                            let headers = response.headers().clone();
+                            let body_bytes = axum::body::to_bytes(response.into_body(), usize::MAX).await
+                                .map_err(|e| BackworksError::Proxy(format!("Failed to read proxy response: {}", e)))?;
+                            
+                            // For now, return a JSON response with the proxied data
+                            let response_json = serde_json::json!({
+                                "status": status.as_u16(),
+                                "headers": headers.iter().map(|(k, v)| (k.to_string(), v.to_str().unwrap_or("").to_string())).collect::<std::collections::HashMap<_, _>>(),
+                                "body": String::from_utf8_lossy(&body_bytes)
+                            });
+                            
+                            Ok(response_json.to_string())
+                        }
+                        Err(e) => Err(e),
+                    }
                 } else {
                     Err(BackworksError::config("Proxy mode requires proxy configuration"))
                 }

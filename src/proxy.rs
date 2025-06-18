@@ -1,6 +1,7 @@
 use crate::config::{ProxyConfig, ProxyTarget, LoadBalancingAlgorithm};
+use crate::capture::CaptureHandler;
 use crate::error::{BackworksError, BackworksResult};
-use axum::{body::Body, http::Request, response::Response};
+use axum::{body::Body, http::{Request, HeaderMap}, response::Response};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -28,22 +29,6 @@ pub struct ProxyMetrics {
     pub circuit_breaker_state: CircuitBreakerState,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct LoadBalancingStrategy {
-    pub algorithm: LoadBalanceAlgorithm,
-    pub sticky_sessions: bool,
-    pub health_check_required: bool,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum LoadBalanceAlgorithm {
-    RoundRobin,
-    WeightedRoundRobin,
-    LeastConnections,
-    Random,
-    IpHash,
-}
-
 #[derive(Debug)]
 pub struct ProxyHandler {
     config: ProxyConfig,
@@ -51,6 +36,7 @@ pub struct ProxyHandler {
     metrics: Arc<RwLock<HashMap<String, ProxyMetrics>>>,
     client: Client,
     current_target_index: Arc<RwLock<usize>>,
+    capture_handler: Option<CaptureHandler>,
 }
 
 impl Clone for ProxyHandler {
@@ -61,6 +47,7 @@ impl Clone for ProxyHandler {
             metrics: Arc::clone(&self.metrics),
             client: self.client.clone(),
             current_target_index: Arc::clone(&self.current_target_index),
+            capture_handler: self.capture_handler.clone(),
         }
     }
 }
@@ -72,12 +59,20 @@ impl ProxyHandler {
             .build()
             .unwrap();
 
+        // Initialize capture handler if capture is configured
+        let capture_handler = if let Some(capture_config) = &config.capture {
+            Some(CaptureHandler::new(capture_config.clone()))
+        } else {
+            None
+        };
+
         Self {
             config,
             targets: Arc::new(RwLock::new(Vec::new())),
             metrics: Arc::new(RwLock::new(HashMap::new())),
             client,
             current_target_index: Arc::new(RwLock::new(0)),
+            capture_handler,
         }
     }
 
@@ -151,8 +146,13 @@ impl ProxyHandler {
     pub async fn proxy_request(&self, mut request: Request<Body>) -> BackworksResult<Response<Body>> {
         let start_time = std::time::Instant::now();
         
+        // Extract information from request before passing it to select_target
+        let method = request.method().as_str();
+        let path = request.uri().path();
+        let headers = request.headers().clone();
+        
         // Select target based on load balancing strategy
-        let target = self.select_target(&request).await?;
+        let target = self.select_target(method, path, &headers).await?;
         
         // Build the target URL
         let target_url = self.build_target_url(&target, request.uri())?;
@@ -173,7 +173,10 @@ impl ProxyHandler {
         let duration = start_time.elapsed();
         
         // Update metrics
-        self.update_metrics(&target.name, &result, duration).await;
+        match &result {
+            Ok(_) => self.update_metrics(&target.name, true, duration).await,
+            Err(_) => self.update_metrics(&target.name, false, duration).await,
+        }
         
         match result {
             Ok(response) => Ok(response),
@@ -216,7 +219,7 @@ impl ProxyHandler {
         }
     }
 
-    async fn select_target(&self, request: &Request<Body>) -> BackworksResult<ProxyTarget> {
+    async fn select_target(&self, method: &str, path: &str, headers_map: &HeaderMap) -> BackworksResult<ProxyTarget> {
         let targets = self.targets.read().await;
         
         if targets.is_empty() {
@@ -252,7 +255,7 @@ impl ProxyHandler {
             }
             Some(LoadBalancingAlgorithm::IpHash) => {
                 // Hash based on client IP (if available)
-                self.select_by_ip_hash(&healthy_targets, request).await
+                self.select_by_ip_hash(&healthy_targets, headers_map).await
             }
             None => {
                 // Default to round-robin
@@ -286,11 +289,11 @@ impl ProxyHandler {
         (*targets[0]).clone() // Fallback
     }
 
-    async fn select_by_ip_hash(&self, targets: &[&ProxyTarget], request: &Request<Body>) -> ProxyTarget {
+    async fn select_by_ip_hash(&self, targets: &[&ProxyTarget], headers_map: &HeaderMap) -> ProxyTarget {
         // Try to get client IP from headers or use a default
-        let client_ip = request.headers()
+        let client_ip = headers_map
             .get("x-forwarded-for")
-            .or_else(|| request.headers().get("x-real-ip"))
+            .or_else(|| headers_map.get("x-real-ip"))
             .and_then(|v| v.to_str().ok())
             .unwrap_or("127.0.0.1");
         
@@ -437,18 +440,15 @@ impl ProxyHandler {
             .map_err(|e| BackworksError::Proxy(format!("Failed to build response: {}", e)))
     }
 
-    async fn update_metrics(&self, target_name: &str, result: &BackworksResult<Response<Body>>, duration: Duration) {
+    async fn update_metrics(&self, target_name: &str, success: bool, duration: Duration) {
         let mut metrics = self.metrics.write().await;
         if let Some(metric) = metrics.get_mut(target_name) {
             metric.total_requests += 1;
             
-            match result {
-                Ok(_) => {
-                    metric.successful_requests += 1;
-                }
-                Err(_) => {
-                    metric.failed_requests += 1;
-                }
+            if success {
+                metric.successful_requests += 1;
+            } else {
+                metric.failed_requests += 1;
             }
             
             // Update average response time
@@ -497,22 +497,154 @@ impl ProxyHandler {
         });
     }
 
-    pub async fn handle_request(&self, proxy_config: &ProxyConfig, request_data: &crate::server::RequestData) -> crate::error::BackworksResult<String> {
-        // For now, return a simple proxy response
-        // TODO: Implement actual proxy logic using the existing proxy_request method
+    /// Handle HTTP proxy request - this is the main proxy method that should be used
+    pub async fn handle_request(&self, request: Request<Body>) -> BackworksResult<Response<Body>> {
+        let start_time = std::time::Instant::now();
         
-        tracing::info!("Handling proxy request to target: {}", proxy_config.target);
-        
-        let response = serde_json::json!({
-            "proxied": true,
-            "target": proxy_config.target,
-            "method": request_data.method,
-            "path": request_data.path_params.get("path").unwrap_or(&"".to_string()),
-            "message": "Request proxied successfully"
-        });
-        
-        Ok(response.to_string())
+        // If capture is enabled, capture the request and response
+        if let Some(ref capture_handler) = self.capture_handler {
+            let mut headers = std::collections::HashMap::new();
+            for (key, value) in request.headers() {
+                if let Ok(value_str) = value.to_str() {
+                    headers.insert(key.to_string(), value_str.to_string());
+                }
+            }
+            
+            let path = request.uri().path().to_string();
+            let method = request.method().to_string();
+            let query_params = request.uri().query()
+                .map(|q| serde_urlencoded::from_str::<HashMap<String, String>>(q).unwrap_or_default())
+                .unwrap_or_default();
+            
+            // Read request body for capture
+            let (parts, body) = request.into_parts();
+            let body_bytes = axum::body::to_bytes(body, usize::MAX).await
+                .map_err(|e| BackworksError::Proxy(format!("Failed to read request body: {}", e)))?;
+            
+            let body_value = if !body_bytes.is_empty() {
+                match serde_json::from_slice::<serde_json::Value>(&body_bytes) {
+                    Ok(json) => Some(json),
+                    Err(_) => {
+                        // If not JSON, store as string
+                        match String::from_utf8(body_bytes.to_vec()) {
+                            Ok(text) => Some(serde_json::Value::String(text)),
+                            Err(_) => None, // Skip binary data
+                        }
+                    }
+                }
+            } else {
+                None
+            };
+            
+            // Reconstruct request with body
+            let request = Request::from_parts(parts, Body::from(body_bytes.to_vec()));
+            
+            let request_id = capture_handler.capture_request(
+                method,
+                path,
+                headers,
+                query_params,
+                body_value,
+            ).await.unwrap_or(uuid::Uuid::nil());
+            
+            // Proxy the request
+            let proxy_result = self.proxy_request(request).await;
+            
+            match proxy_result {
+                Ok(response) => {
+                    let duration = start_time.elapsed();
+                    
+                    // Capture the response if we have a valid request ID
+                    if request_id != uuid::Uuid::nil() {
+                        let (parts, body) = response.into_parts();
+                        let body_bytes = axum::body::to_bytes(body, usize::MAX).await
+                            .map_err(|e| BackworksError::Proxy(format!("Failed to read response body: {}", e)))?;
+                        
+                        let mut response_headers = std::collections::HashMap::new();
+                        for (key, value) in &parts.headers {
+                            if let Ok(value_str) = value.to_str() {
+                                response_headers.insert(key.to_string(), value_str.to_string());
+                            }
+                        }
+                        
+                        let response_body = if !body_bytes.is_empty() {
+                            match serde_json::from_slice::<serde_json::Value>(&body_bytes) {
+                                Ok(json) => Some(json),
+                                Err(_) => {
+                                    match String::from_utf8(body_bytes.to_vec()) {
+                                        Ok(text) => Some(serde_json::Value::String(text)),
+                                        Err(_) => None,
+                                    }
+                                }
+                            }
+                        } else {
+                            None
+                        };
+                        
+                        let _ = capture_handler.capture_response(
+                            request_id,
+                            parts.status.as_u16(),
+                            response_headers,
+                            response_body,
+                            duration,
+                        ).await;
+                        
+                        tracing::debug!("Captured proxy request/response pair");
+                        
+                        // Reconstruct response
+                        Ok(Response::from_parts(parts, Body::from(body_bytes.to_vec())))
+                    } else {
+                        Ok(response)
+                    }
+                }
+                Err(e) => Err(e),
+            }
+        } else {
+            // No capture, just proxy the request
+            self.proxy_request(request).await
+        }
     }
+
+    /// Start a capture session if capture is enabled
+    pub async fn start_capture_session(&self, session_name: String) -> BackworksResult<Option<uuid::Uuid>> {
+        if let Some(ref capture_handler) = self.capture_handler {
+            let session_id = capture_handler.start_session(session_name).await?;
+            tracing::info!("Started proxy capture session: {}", session_id);
+            Ok(Some(session_id))
+        } else {
+            Ok(None)
+        }
+    }
+
+    /// Stop a capture session
+    pub async fn stop_capture_session(&self, session_id: uuid::Uuid) -> BackworksResult<()> {
+        if let Some(ref capture_handler) = self.capture_handler {
+            capture_handler.stop_session(session_id).await?;
+            tracing::info!("Stopped proxy capture session: {}", session_id);
+        }
+        Ok(())
+    }
+
+    /// Export captured data from proxy
+    pub async fn export_captured_data(&self, session_id: uuid::Uuid, format: &str) -> BackworksResult<Option<String>> {
+        if let Some(ref capture_handler) = self.capture_handler {
+            let exported = capture_handler.export_session(session_id, format).await?;
+            Ok(Some(exported))
+        } else {
+            Ok(None)
+        }
+    }
+
+    /// Generate API configuration from captured proxy data
+    pub async fn generate_api_config(&self, session_id: uuid::Uuid) -> BackworksResult<Option<String>> {
+        if let Some(ref capture_handler) = self.capture_handler {
+            let config = capture_handler.generate_api_from_capture(session_id).await?;
+            Ok(Some(config))
+        } else {
+            Ok(None)
+        }
+    }
+
 }
 
 #[cfg(test)]
@@ -521,25 +653,28 @@ mod tests {
 
     fn create_test_proxy_config() -> ProxyConfig {
         ProxyConfig {
-            targets: vec![
+            target: "http://localhost:8001".to_string(),
+            targets: Some(vec![
                 ProxyTarget {
                     name: "backend1".to_string(),
                     url: "http://localhost:8001".to_string(),
-                    weight: Some(1),
+                    weight: Some(1.0),
                     health_check: None,
                     timeout: None,
                     retry_attempts: None,
                     circuit_breaker: None,
                 }
-            ],
-            load_balancing: LoadBalancingStrategy {
-                algorithm: LoadBalanceAlgorithm::RoundRobin,
-                sticky_sessions: false,
-                health_check_required: false,
-            },
-            health_checks: false,
-            headers: HashMap::new(),
-            timeout: Duration::from_secs(30),
+            ]),
+            strip_prefix: None,
+            timeout: Some(30),
+            transform_request: None,
+            transform_response: None,
+            health_checks: Some(false),
+            load_balancing: Some(crate::config::LoadBalancingConfig {
+                algorithm: LoadBalancingAlgorithm::RoundRobin,
+            }),
+            headers: Some(HashMap::new()),
+            capture: None,
         }
     }
 
@@ -559,7 +694,7 @@ mod tests {
         let target = ProxyTarget {
             name: "test_target".to_string(),
             url: "http://example.com".to_string(),
-            weight: Some(1),
+            weight: Some(1.0),
             health_check: None,
             timeout: None,
             retry_attempts: None,
