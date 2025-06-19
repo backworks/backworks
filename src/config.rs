@@ -11,7 +11,9 @@ pub enum ExecutionMode {
     Proxy,
     #[serde(rename = "plugin")]
     Plugin,
-}tions::HashMap;
+}
+
+use std::collections::HashMap;
 use std::path::PathBuf;
 use crate::error::{BackworksError, Result};
 use crate::plugin::PluginConfig;
@@ -48,20 +50,7 @@ pub struct BackworksConfig {
     pub logging: LoggingConfig,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub enum ExecutionMode {
-    #[default]
-    #[serde(rename = "mock")]
-    Mock,
-    #[serde(rename = "runtime")]
-    Runtime,
-    #[serde(rename = "database")]
-    Database,
-    #[serde(rename = "proxy")]
-    Proxy,
-    #[serde(rename = "plugin")]
-    Plugin,
-}
+// ExecutionMode enum is defined above
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ServerConfig {
@@ -95,9 +84,8 @@ pub struct EndpointConfig {
     #[serde(default)]
     pub mode: Option<ExecutionMode>,
     
-    // Mock configuration
-    pub mock: Option<MockConfig>,
-    pub mock_responses: Option<HashMap<String, MockResponse>>,
+    // Mock configuration (removed)
+    // Removed mock and mock_responses fields
     
     // Runtime configuration  
     pub runtime: Option<RuntimeConfig>,
@@ -133,6 +121,7 @@ fn default_methods() -> Vec<String> {
     vec!["GET".to_string()]
 }
 
+#[deprecated(since = "0.2.0", note = "Mock mode is deprecated, use proxy mode instead")]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MockConfig {
     pub data: Option<serde_json::Value>,
@@ -142,6 +131,7 @@ pub struct MockConfig {
     pub patterns: Option<Vec<String>>,
 }
 
+#[deprecated(since = "0.2.0", note = "Mock mode is deprecated, use proxy mode instead")]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MockResponse {
     #[serde(default = "default_status")]

@@ -419,7 +419,10 @@ mod tests {
         DashboardConfig {
             enabled: true,
             port: 3001,
-            auto_open: false,
+            features: Some(vec!["metrics".to_string(), "api".to_string()]),
+            real_time: None,
+            visualization: None,
+            access: None,
         }
     }
 

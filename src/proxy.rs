@@ -652,7 +652,8 @@ impl ProxyHandler {
             .map_err(|e| BackworksError::Proxy(format!("Invalid HTTP method: {}", e)))?;
         
         // Build URI from path_params and query_params
-        let path = request_data.path_params.get("path").unwrap_or(&"/".to_string());
+        let default_path = "/".to_string();
+        let path = request_data.path_params.get("path").unwrap_or(&default_path);
         let query_string = if !request_data.query_params.is_empty() {
             format!("?{}", serde_urlencoded::to_string(&request_data.query_params).unwrap_or_default())
         } else {

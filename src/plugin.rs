@@ -396,7 +396,7 @@ impl PluginManager {
     pub async fn execute_plugin(&self, plugin_name: &str, request_data: &str) -> BackworksResult<String> {
         let plugins = self.plugins.read().await;
         
-        if let Some(plugin) = plugins.get(plugin_name) {
+        if let Some(_plugin) = plugins.get(plugin_name) {
             // For now, return a simple response - this would be implemented based on plugin capabilities
             let result = format!(
                 r#"{{"plugin": "{}", "processed": true, "message": "Plugin executed successfully", "data": {}}}"#,

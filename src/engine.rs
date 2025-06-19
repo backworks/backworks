@@ -77,7 +77,7 @@ impl BackworksEngine {
         let runtime_manager = RuntimeManager::new(runtime_config);
         
         // Initialize dashboard if enabled
-        let dashboard = if let Some(ref dashboard_config) = config.dashboard {
+        let dashboard = if let Some(ref dashboard_config) = &config.dashboard {
             if dashboard_config.enabled {
                 info!("🎨 Initializing dashboard on port {}...", dashboard_config.port);
                 Some(Dashboard::new(dashboard_config.clone()))
@@ -165,7 +165,7 @@ impl BackworksEngine {
         println!("📋 API: {}", self.config.name);
         println!("🌐 Server: http://{}:{}", self.config.server.host, self.config.server.port);
         
-        if let Some(ref dashboard) = self.config.dashboard {
+        if let Some(ref dashboard) = &self.config.dashboard {
             if dashboard.enabled {
                 println!("🎨 Dashboard: http://localhost:{}", dashboard.port);
             }
@@ -205,7 +205,7 @@ impl BackworksEngine {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::{ServerConfig, EndpointConfig};
+    use crate::config::{ServerConfig, EndpointConfig, ExecutionMode};
     use std::collections::HashMap;
     
     fn create_test_config() -> BackworksConfig {
@@ -215,8 +215,7 @@ mod tests {
             methods: vec!["GET".to_string()],
             description: None,
             mode: None,
-            mock: None,
-            mock_responses: None,
+            // mock and mock_responses fields removed (deprecated)
             runtime: None,
             database: None,
             proxy: Some(crate::config::ProxyConfig {
@@ -248,7 +247,7 @@ mod tests {
             mode: ExecutionMode::Proxy,
             endpoints,
             server: ServerConfig::default(),
-            ai: Default::default(),
+            plugins: HashMap::new(), // Replaced ai field with plugins
             dashboard: None,
             database: None,
             apis: None,

@@ -1,5 +1,6 @@
 use crate::config::DatabaseConfig;
 use crate::error::{BackworksError, BackworksResult};
+use crate::config::PoolConfig;
 use serde::{Deserialize, Serialize};
 use sqlx::{Any, AnyPool, Column, Row, TypeInfo};
 use std::collections::HashMap;
@@ -358,7 +359,7 @@ impl DatabaseManager {
 
     fn build_connection_string(&self, config: &DatabaseConfig) -> BackworksResult<String> {
         // First check if a connection string is directly provided
-        if let Some(ref conn_str) = config.connection_string {
+        if let Some(ref conn_str) = &config.connection_string {
             return Ok(conn_str.clone());
         }
         
@@ -431,7 +432,7 @@ impl DatabaseManager {
         })
     }
 
-    async fn get_mysql_schema(&self, pool: &AnyPool) -> BackworksResult<SchemaInfo> {
+    async fn get_mysql_schema(&self, _pool: &AnyPool) -> BackworksResult<SchemaInfo> {
         // Similar implementation for MySQL
         // This is a simplified version
         Ok(SchemaInfo {
@@ -591,7 +592,7 @@ impl DatabaseManager {
         Ok("{\"message\": \"DELETE not yet implemented\"}".to_string())
     }
     
-    fn extract_value(&self, row: &sqlx::any::AnyRow, index: usize) -> BackworksResult<serde_json::Value> {
+    fn extract_value(&self, _row: &sqlx::any::AnyRow, _index: usize) -> BackworksResult<serde_json::Value> {
         // Extract value from row at given index
         // This is a simplified implementation
         Ok(serde_json::Value::String("value".to_string()))
@@ -630,14 +631,15 @@ mod tests {
     fn test_build_postgresql_connection_string() {
         let manager = DatabaseManager::new();
         let config = DatabaseConfig {
-            database_type: "postgresql".to_string(),
-            host: Some("localhost".to_string()),
-            port: Some(5432),
-            username: Some("user".to_string()),
-            password: Some("pass".to_string()),
-            database: Some("mydb".to_string()),
-            pool_size: Some(10),
-            connection_timeout: None,
+            db_type: "postgresql".to_string(),
+            connection_string: Some("postgresql://user:pass@localhost:5432/mydb".to_string()),
+            connection_string_env: None,
+            pool: Some(PoolConfig {
+                min_connections: None,
+                max_connections: Some(10),
+                connection_timeout: None,
+            }),
+            databases: None,
         };
         
         let conn_str = manager.build_connection_string(&config).unwrap();
@@ -648,14 +650,11 @@ mod tests {
     fn test_build_sqlite_connection_string() {
         let manager = DatabaseManager::new();
         let config = DatabaseConfig {
-            database_type: "sqlite".to_string(),
-            host: None,
-            port: None,
-            username: None,
-            password: None,
-            database: Some("test.db".to_string()),
-            pool_size: None,
-            connection_timeout: None,
+            db_type: "sqlite".to_string(),
+            connection_string: Some("sqlite:test.db".to_string()),
+            connection_string_env: None,
+            pool: None,
+            databases: None,
         };
         
         let conn_str = manager.build_connection_string(&config).unwrap();

@@ -384,6 +384,6 @@ mod tests {
         let config = RuntimeManagerConfig::default();
         let runtime_manager = RuntimeManager::new(config);
         
-        assert!(runtime_manager.start().await is_ok());
+        assert!(runtime_manager.start().await.is_ok());
     }
 }

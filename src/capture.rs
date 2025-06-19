@@ -435,7 +435,7 @@ impl CaptureHandler {
         Ok(yaml)
     }
 
-    async fn generate_har_format(&self, session: CaptureSession, requests: Vec<CapturedRequest>) -> BackworksResult<String> {
+    async fn generate_har_format(&self, _session: CaptureSession, requests: Vec<CapturedRequest>) -> BackworksResult<String> {
         let har_data = serde_json::json!({
             "log": {
                 "version": "1.2",
@@ -619,25 +619,25 @@ mod tests {
 
     fn create_test_capture_config() -> CaptureConfig {
         CaptureConfig {
-            enabled: true,
-            auto_start: false,
+            enabled: Some(true),
+            auto_start: Some(false),
             include_patterns: None,
             exclude_patterns: None,
             methods: None,
-            max_requests: Some(1000),
-            storage_path: Some("./captures".to_string()),
+            analyze: Some(true),
+            learn_schema: Some(true),
         }
     }
 
     fn create_filtered_capture_config() -> CaptureConfig {
         CaptureConfig {
-            enabled: true,
-            auto_start: false,
+            enabled: Some(true),
+            auto_start: Some(false),
             include_patterns: Some(vec!["/api/*".to_string(), "/v1/*".to_string()]),
             exclude_patterns: Some(vec!["/health".to_string(), "*.css".to_string()]),
             methods: Some(vec!["GET".to_string(), "POST".to_string()]),
-            max_requests: Some(100),
-            storage_path: Some("./test_captures".to_string()),
+            analyze: Some(true),
+            learn_schema: Some(true),
         }
     }
 
@@ -698,8 +698,8 @@ mod tests {
         let config = create_test_capture_config();
         let handler = CaptureHandler::new(config);
         
-        let session1 = handler.start_session("session_1".to_string()).await.unwrap();
-        let session2 = handler.start_session("session_2".to_string()).await.unwrap();
+        let _session1 = handler.start_session("session_1".to_string()).await.unwrap();
+        let _session2 = handler.start_session("session_2".to_string()).await.unwrap();
         let session3 = handler.start_session("session_3".to_string()).await.unwrap();
         
         let sessions = handler.get_sessions().await;

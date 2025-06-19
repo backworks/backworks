@@ -4,8 +4,7 @@ use axum::{
     routing::{get, post, put, delete, any},
     response::Json,
     extract::{Path, Query, State},
-    http::{StatusCode, HeaderMap, Method, Request},
-    body::Body,
+    http::{StatusCode, HeaderMap, Method},
     middleware,
 };
 use tower::ServiceBuilder;
@@ -89,8 +88,8 @@ impl BackworksServer {
         app = app.route("/health", get(health_check));
         
         // Add metrics endpoint if monitoring is enabled
-        if let Some(ref monitoring) = self.state.config.monitoring {
-            if let Some(ref metrics) = monitoring.metrics {
+        if let Some(ref monitoring) = &self.state.config.monitoring {
+            if let Some(ref metrics) = &monitoring.metrics {
                 if metrics.enabled.unwrap_or(false) {
                     let endpoint = metrics.export_endpoint.as_deref().unwrap_or("/metrics");
                     app = app.route(endpoint, get(metrics_handler));
@@ -124,10 +123,10 @@ impl BackworksServer {
     fn create_cors_layer(&self) -> CorsLayer {
         let mut cors = CorsLayer::new();
         
-        if let Some(ref security) = self.state.config.security {
-            if let Some(ref cors_config) = security.cors {
+        if let Some(ref security) = &self.state.config.security {
+            if let Some(ref cors_config) = &security.cors {
                 if cors_config.enabled.unwrap_or(false) {
-                    if let Some(ref origins) = cors_config.origins {
+                    if let Some(ref origins) = &cors_config.origins {
                         for origin in origins {
                             // Parse as HeaderValue and create AllowOrigin
                             if let Ok(header_value) = origin.parse::<http::HeaderValue>() {
@@ -139,7 +138,7 @@ impl BackworksServer {
                         cors = cors.allow_origin(Any);
                     }
                     
-                    if let Some(ref methods) = cors_config.methods {
+                    if let Some(ref methods) = &cors_config.methods {
                         let parsed_methods: Vec<Method> = methods
                             .iter()
                             .filter_map(|m| m.parse().ok())

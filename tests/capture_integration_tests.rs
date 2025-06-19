@@ -14,7 +14,7 @@ use uuid::Uuid;
 #[tokio::test]
 async fn test_ecommerce_api_capture_scenario() {
     let config = CaptureConfig {
-        enabled: true,
+        enabled: Some(true),
         auto_start: Some(false),
         include_patterns: Some(vec![
             "/api/v1/products/*".to_string(),
@@ -26,8 +26,8 @@ async fn test_ecommerce_api_capture_scenario() {
             "/api/v1/metrics".to_string(),
         ]),
         methods: Some(vec!["GET".to_string(), "POST".to_string(), "PUT".to_string()]),
-        max_requests: Some(1000),
-        storage_path: Some("./test_captures/ecommerce".to_string()),
+        analyze: Some(true),
+        learn_schema: Some(true),
     };
 
     let handler = CaptureHandler::new(config);
@@ -121,7 +121,7 @@ async fn test_ecommerce_api_capture_scenario() {
 
     // Verify capture results
     let requests = handler.get_captured_requests(session_id, None).await;
-    assert_eq!(requests.len(), 6); // 4 product + 1 user + 1 order
+    assert_eq!(requests.len(), 6); // Six requests total: 4 product requests, 1 user registration, 1 order creation
 
     // Test filtering by method
     let get_filter = CaptureFilter {
@@ -132,7 +132,7 @@ async fn test_ecommerce_api_capture_scenario() {
         max_duration: None,
     };
     let get_requests = handler.get_captured_requests(session_id, Some(get_filter)).await;
-    assert_eq!(get_requests.len(), 4);
+    assert_eq!(get_requests.len(), 4); // 4 GET requests for product endpoints
 
     // Test filtering by path pattern
     let product_filter = CaptureFilter {
@@ -143,7 +143,7 @@ async fn test_ecommerce_api_capture_scenario() {
         max_duration: None,
     };
     let product_requests = handler.get_captured_requests(session_id, Some(product_filter)).await;
-    assert_eq!(product_requests.len(), 4);
+    assert_eq!(product_requests.len(), 4); // 4 product-related endpoints
 
     // Generate API configuration
     let yaml_config = handler.generate_api_from_capture(session_id).await.unwrap();
@@ -167,7 +167,7 @@ async fn test_ecommerce_api_capture_scenario() {
 #[tokio::test]
 async fn test_capture_filtering_and_monitoring() {
     let config = CaptureConfig {
-        enabled: true,
+        enabled: Some(true),
         auto_start: Some(true),
         include_patterns: Some(vec!["/api/*".to_string()]),
         exclude_patterns: Some(vec![
@@ -177,8 +177,8 @@ async fn test_capture_filtering_and_monitoring() {
             "*.js".to_string(),
         ]),
         methods: Some(vec!["GET".to_string(), "POST".to_string()]),
-        max_requests: Some(100),
-        storage_path: Some("./test_captures/monitoring".to_string()),
+        analyze: Some(true),
+        learn_schema: Some(true),
     };
 
     let handler = CaptureHandler::new(config);
@@ -238,13 +238,13 @@ async fn test_capture_filtering_and_monitoring() {
 #[tokio::test]
 async fn test_concurrent_capture_operations() {
     let config = CaptureConfig {
-        enabled: true,
+        enabled: Some(true),
         auto_start: Some(false),
         include_patterns: None,
         exclude_patterns: None,
         methods: None,
-        max_requests: Some(1000),
-        storage_path: Some("./test_captures/concurrent".to_string()),
+        analyze: Some(true),
+        learn_schema: Some(true),
     };
 
     let handler = std::sync::Arc::new(CaptureHandler::new(config));
@@ -337,13 +337,13 @@ async fn test_concurrent_capture_operations() {
 #[tokio::test]
 async fn test_realistic_data_export() {
     let config = CaptureConfig {
-        enabled: true,
+        enabled: Some(true),
         auto_start: Some(false),
         include_patterns: Some(vec!["/api/*".to_string()]),
         exclude_patterns: None,
         methods: None,
-        max_requests: Some(500),
-        storage_path: Some("./test_captures/export".to_string()),
+        analyze: Some(true),
+        learn_schema: Some(true),
     };
 
     let handler = CaptureHandler::new(config);
