@@ -306,7 +306,13 @@ impl CaptureHandler {
         // Apply include/exclude filters
         if let Some(include_patterns) = &self.config.include_patterns {
             let matches = include_patterns.iter().any(|pattern| {
-                path.contains(pattern) || glob::Pattern::new(pattern).map(|p| p.matches(path)).unwrap_or(false)
+                // Check for direct match (path is exact pattern without wildcard)
+                let base_pattern = pattern.trim_end_matches("/*");
+                path == base_pattern || 
+                // Check for prefix match (path starts with pattern base)
+                path.starts_with(&format!("{}/", base_pattern)) ||
+                // Use glob pattern matching
+                glob::Pattern::new(pattern).map(|p| p.matches(path)).unwrap_or(false)
             });
             if !matches {
                 return false;
@@ -315,7 +321,13 @@ impl CaptureHandler {
         
         if let Some(exclude_patterns) = &self.config.exclude_patterns {
             let matches = exclude_patterns.iter().any(|pattern| {
-                path.contains(pattern) || glob::Pattern::new(pattern).map(|p| p.matches(path)).unwrap_or(false)
+                // Check for direct match (path is exact pattern without wildcard)
+                let base_pattern = pattern.trim_end_matches("/*");
+                path == base_pattern ||
+                // Check for prefix match (path starts with pattern base)
+                path.starts_with(&format!("{}/", base_pattern)) ||
+                // Use glob pattern matching
+                glob::Pattern::new(pattern).map(|p| p.matches(path)).unwrap_or(false)
             });
             if matches {
                 return false;
@@ -345,7 +357,12 @@ impl CaptureHandler {
                 // Filter by path patterns
                 if let Some(patterns) = &filter.path_patterns {
                     let matches = patterns.iter().any(|pattern| {
-                        request.path.contains(pattern) || 
+                        // Check for direct match (path is exact pattern without wildcard)
+                        let base_pattern = pattern.trim_end_matches("*");
+                        request.path == base_pattern ||
+                        // Check for prefix match (path starts with pattern base)
+                        request.path.starts_with(&format!("{}/", base_pattern.trim_end_matches("/"))) ||
+                        // Use glob pattern matching
                         glob::Pattern::new(pattern).map(|p| p.matches(&request.path)).unwrap_or(false)
                     });
                     if !matches {

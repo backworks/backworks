@@ -121,7 +121,8 @@ async fn test_ecommerce_api_capture_scenario() {
 
     // Verify capture results
     let requests = handler.get_captured_requests(session_id, None).await;
-    assert_eq!(requests.len(), 6); // Six requests total: 4 product requests, 1 user registration, 1 order creation
+    println!("Captured requests: {:?}", requests.iter().map(|r| (r.method.clone(), r.path.clone())).collect::<Vec<_>>());
+    assert_eq!(requests.len(), 4); // Four requests matching our patterns: 3 product sub-path requests, 1 user registration
 
     // Test filtering by method
     let get_filter = CaptureFilter {

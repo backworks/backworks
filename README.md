@@ -82,16 +82,13 @@ apis:
 
 ## 📖 Documentation
 
-- [🏗️ Architecture Overview](./docs/architecture.md)
-- [⚡ Quick Start Guide](./docs/quick-start.md)
-- [📝 Configuration Reference](./docs/configuration.md)
-- [🔄 Evolution Modes](./docs/modes.md)
-- [🤖 AI Features](./docs/ai-features.md)
-- [🎨 Visual Dashboard](./docs/dashboard.md)
-- [🔌 External APIs](./docs/external-apis.md)
-- [🌍 Multi-Runtime Support](./docs/runtimes.md)
-- [📊 Monitoring & Analytics](./docs/monitoring.md)
-- [🔧 Advanced Usage](./docs/advanced.md)
+- [📚 Documentation Index](./docs/README.md) - Central hub for all documentation
+- [🏗️ Architecture Overview](./docs/CONSOLIDATED_ARCHITECTURE.md) - Comprehensive architecture guide
+- [⚡ Quick Start Guide](./docs/quick-start.md) - Get started quickly
+- [📝 Configuration Reference](./docs/configuration.md) - Configuration options
+- [👩‍💻 Developer Guide](./docs/DEVELOPER_GUIDE.md) - Guide for developers
+- [� Issue Tracker](./ISSUES.md) - Current issues and workstreams
+- [�️ Implementation Roadmap](./IMPLEMENTATION_ROADMAP.md) - Development phases
 
 ## 🛠️ Installation
 
