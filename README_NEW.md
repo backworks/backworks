@@ -1,6 +1,6 @@
 # 🚀 Backworks
 
-**Configuration-driven backend platform that works backwards from your needs.**
+**Configuration-driven API platform that works backwards from your needs.**
 
 ## 🎯 **What is Backworks?**
 
