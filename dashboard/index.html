@@ -3313,7 +3313,8 @@ at async Router.post (routes/api.js:56:18)`}
             );
         }
 
-        ReactDOM.render(<Dashboard />, document.getElementById('app'));
+        const root = ReactDOM.createRoot(document.getElementById('app'));
+        root.render(<Dashboard />);
     </script>
 </body>
 </html>
