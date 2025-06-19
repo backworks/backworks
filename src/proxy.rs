@@ -821,16 +821,18 @@ impl ProxyHandler {
             let mut new_path = uri.path().to_string();
             tracing::info!("Original path: {}", new_path);
             
-            if let Some(prefix) = &path_config.add_prefix {
-                new_path = format!("{}{}", prefix, new_path);
-                tracing::info!("After add_prefix: {}", new_path);
-            }
-            
+            // First strip prefix if specified
             if let Some(prefix) = &path_config.strip_prefix {
                 if new_path.starts_with(prefix) {
                     new_path = new_path[prefix.len()..].to_string();
                     tracing::info!("After strip_prefix: {}", new_path);
                 }
+            }
+            
+            // Then add prefix if specified
+            if let Some(prefix) = &path_config.add_prefix {
+                new_path = format!("{}{}", prefix, new_path);
+                tracing::info!("After add_prefix: {}", new_path);
             }
             
             if let Some(pattern_replace) = &path_config.pattern_replace {
