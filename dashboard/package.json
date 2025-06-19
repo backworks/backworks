@@ -1,6 +1,7 @@
 {
-  "name": "my-qwik-empty-starter",
-  "description": "Blank project with routing included",
+  "name": "backworks-studio",
+  "description": "Backworks Studio - Visual dashboard and designer for the declarative backend platform",
+  "version": "1.0.0",
   "engines": {
     "node": "^18.17.0 || ^20.3.0 || >=21.0.0"
   },
@@ -45,6 +46,8 @@
     "chart.js": "^4.5.0",
     "chartjs-adapter-date-fns": "^3.0.0",
     "date-fns": "^4.1.0",
-    "lucide-react": "^0.518.0"
+    "lucide-react": "^0.518.0",
+    "monaco-editor": "^0.52.0",
+    "yaml": "^2.6.1"
   }
 }
