@@ -177,7 +177,7 @@ pub struct DatabaseTransformConfig {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProxyConfig {
-    pub target: String,
+    pub target: Option<String>,
     pub targets: Option<Vec<ProxyTarget>>,
     pub strip_prefix: Option<String>,
     pub timeout: Option<u64>,
@@ -233,10 +233,162 @@ pub enum LoadBalancingAlgorithm {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TransformConfig {
+    // Header transformations
     pub add_headers: Option<HashMap<String, String>>,
     pub remove_headers: Option<Vec<String>>,
-    pub transform_body: Option<String>,
+    pub header_mapping: Option<HashMap<String, String>>,
+    
+    // Status code transformations
     pub status_code_mapping: Option<HashMap<u16, u16>>,
+    pub force_status_code: Option<u16>,
+    
+    // Body transformations
+    pub body_transform: Option<BodyTransform>,
+    
+    // Path and query transformations
+    pub path_rewrite: Option<PathRewrite>,
+    pub query_transform: Option<QueryTransform>,
+    
+    // Content type conversions
+    pub content_conversion: Option<ContentConversion>,
+    
+    // Response filtering and formatting
+    pub response_filter: Option<ResponseFilter>,
+    
+    // Template-based transformations
+    pub template: Option<TemplateTransform>,
+    
+    // Script-based transformations (JavaScript/Lua)
+    pub script: Option<ScriptTransform>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BodyTransform {
+    // JSON transformations
+    pub json_path_mapping: Option<HashMap<String, String>>, // "$.user.name" -> "$.userName"
+    pub json_field_addition: Option<HashMap<String, serde_json::Value>>,
+    pub json_field_removal: Option<Vec<String>>,
+    pub json_field_renaming: Option<HashMap<String, String>>,
+    
+    // String transformations
+    pub string_replace: Option<Vec<StringReplace>>,
+    pub string_template: Option<String>, // Handlebars-style template
+    
+    // Format conversions
+    pub input_format: Option<ContentFormat>,
+    pub output_format: Option<ContentFormat>,
+    
+    // Custom transformation script
+    pub transform_script: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StringReplace {
+    pub pattern: String,
+    pub replacement: String,
+    pub is_regex: Option<bool>,
+    pub case_sensitive: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum ContentFormat {
+    Json,
+    Xml,
+    Yaml,
+    Csv,
+    PlainText,
+    FormData,
+    Base64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PathRewrite {
+    pub strip_prefix: Option<String>,
+    pub add_prefix: Option<String>,
+    pub pattern_replace: Option<Vec<PathReplace>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PathReplace {
+    pub pattern: String, // regex pattern
+    pub replacement: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct QueryTransform {
+    pub add_params: Option<HashMap<String, String>>,
+    pub remove_params: Option<Vec<String>>,
+    pub rename_params: Option<HashMap<String, String>>,
+    pub default_values: Option<HashMap<String, String>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ContentConversion {
+    pub from: ContentFormat,
+    pub to: ContentFormat,
+    pub options: Option<HashMap<String, String>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ResponseFilter {
+    pub include_fields: Option<Vec<String>>, // JSONPath expressions
+    pub exclude_fields: Option<Vec<String>>, // JSONPath expressions
+    pub field_filters: Option<HashMap<String, FieldFilter>>,
+    pub pagination: Option<PaginationTransform>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FieldFilter {
+    pub condition: String, // "gt:100", "contains:test", "regex:^[A-Z]"
+    pub action: FilterAction,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum FilterAction {
+    Include,
+    Exclude,
+    Transform(String), // transformation expression
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PaginationTransform {
+    pub page_param: String,
+    pub size_param: String,
+    pub total_field: Option<String>,
+    pub data_field: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TemplateTransform {
+    pub engine: TemplateEngine,
+    pub request_template: Option<String>,
+    pub response_template: Option<String>,
+    pub variables: Option<HashMap<String, String>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum TemplateEngine {
+    Handlebars,
+    Mustache,
+    Jinja2,
+    Custom(String),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ScriptTransform {
+    pub language: ScriptLanguage,
+    pub request_script: Option<String>,
+    pub response_script: Option<String>,
+    pub timeout: Option<u64>,
+    pub sandbox: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum ScriptLanguage {
+    JavaScript,
+    Lua,
+    Python,
+    Wasm,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

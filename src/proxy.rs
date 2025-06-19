@@ -1,9 +1,10 @@
-use crate::config::{ProxyConfig, ProxyTarget, LoadBalancingAlgorithm};
+use crate::config::{ProxyConfig, ProxyTarget, LoadBalancingAlgorithm, TransformConfig, BodyTransform};
 use crate::capture::CaptureHandler;
 use crate::error::{BackworksError, BackworksResult};
-use axum::{body::Body, http::{Request, HeaderMap}, response::Response};
+use axum::{body::Body, http::{Request, HeaderMap, StatusCode, HeaderName, HeaderValue}, response::Response};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
@@ -54,6 +55,9 @@ impl Clone for ProxyHandler {
 
 impl ProxyHandler {
     pub fn new(config: ProxyConfig) -> Self {
+        tracing::info!("Creating ProxyHandler with config: transform_request={:?}, transform_response={:?}", 
+                      config.transform_request.is_some(), config.transform_response.is_some());
+        
         let client = Client::builder()
             .timeout(Duration::from_secs(30))
             .build()
@@ -85,17 +89,21 @@ impl ProxyHandler {
                 self.add_target(target.clone()).await?;
             }
         } else {
-            // Fallback to single target configuration
-            let single_target = ProxyTarget {
-                name: "default".to_string(),
-                url: self.config.target.clone(),
-                weight: Some(1.0),
-                timeout: self.config.timeout.map(std::time::Duration::from_secs),
-                health_check: None,
-                retry_attempts: Some(3),
-                circuit_breaker: None,
-            };
-            self.add_target(single_target).await?;
+            // Fallback to single target configuration if available
+            if let Some(target_url) = &self.config.target {
+                let single_target = ProxyTarget {
+                    name: "default".to_string(),
+                    url: target_url.clone(),
+                    weight: Some(1.0),
+                    timeout: self.config.timeout.map(std::time::Duration::from_secs),
+                    health_check: None,
+                    retry_attempts: Some(3),
+                    circuit_breaker: None,
+                };
+                self.add_target(single_target).await?;
+            } else {
+                return Err(BackworksError::config("Proxy requires either 'target' or 'targets' configuration"));
+            }
         }
         
         // Start health checks if enabled
@@ -146,7 +154,10 @@ impl ProxyHandler {
     pub async fn proxy_request(&self, mut request: Request<Body>) -> BackworksResult<Response<Body>> {
         let start_time = std::time::Instant::now();
         
-        // Extract information from request before passing it to select_target
+        // Apply request transformations FIRST
+        request = self.apply_request_transformation(request).await?;
+        
+        // Extract information from request AFTER transformation
         let method = request.method().as_str();
         let path = request.uri().path();
         let headers = request.headers().clone();
@@ -154,10 +165,10 @@ impl ProxyHandler {
         // Select target based on load balancing strategy
         let target = self.select_target(method, path, &headers).await?;
         
-        // Build the target URL
+        // Build the target URL using the TRANSFORMED request URI
         let target_url = self.build_target_url(&target, request.uri())?;
         
-        // Update request URI
+        // Update request URI to the final target URL
         let uri_parts = target_url.as_str().parse::<http::Uri>()
             .map_err(|e| BackworksError::Proxy(format!("Invalid target URI: {}", e)))?;
         *request.uri_mut() = uri_parts;
@@ -179,7 +190,11 @@ impl ProxyHandler {
         }
         
         match result {
-            Ok(response) => Ok(response),
+            Ok(mut response) => {
+                // Apply response transformations
+                response = self.apply_response_transformation(response).await?;
+                Ok(response)
+            },
             Err(e) => {
                 // Return a 502 Bad Gateway error
                 Ok(Response::builder()
@@ -755,6 +770,255 @@ impl ProxyHandler {
             }
             Err(e) => Err(e),
         }
+    }
+
+    // Transformation methods
+    async fn apply_request_transformation(&self, mut request: Request<Body>) -> BackworksResult<Request<Body>> {
+        if let Some(transform_config) = &self.config.transform_request {
+            tracing::info!("Applying request transformations");
+            request = self.transform_request(request, transform_config).await?;
+        } else {
+            tracing::debug!("No request transformations configured");
+        }
+        Ok(request)
+    }
+
+    async fn apply_response_transformation(&self, mut response: Response<Body>) -> BackworksResult<Response<Body>> {
+        if let Some(transform_config) = &self.config.transform_response {
+            tracing::info!("Applying response transformations");
+            response = self.transform_response(response, transform_config).await?;
+        } else {
+            tracing::debug!("No response transformations configured");
+        }
+        Ok(response)
+    }
+
+    async fn transform_request(&self, mut request: Request<Body>, config: &TransformConfig) -> BackworksResult<Request<Body>> {
+        tracing::info!("Starting request transformation");
+        
+        // Transform headers
+        if let Some(add_headers) = &config.add_headers {
+            tracing::info!("Adding request headers: {:?}", add_headers);
+            let headers = request.headers_mut();
+            for (key, value) in add_headers {
+                if let (Ok(name), Ok(value)) = (key.parse::<HeaderName>(), value.parse::<HeaderValue>()) {
+                    headers.insert(name, value);
+                }
+            }
+        }
+        
+        if let Some(remove_headers) = &config.remove_headers {
+            let headers = request.headers_mut();
+            for key in remove_headers {
+                if let Ok(name) = key.parse::<HeaderName>() {
+                    headers.remove(&name);
+                }
+            }
+        }
+
+        // Transform path
+        if let Some(path_config) = &config.path_rewrite {
+            tracing::info!("Applying path transformation: {:?}", path_config);
+            let uri = request.uri();
+            let mut new_path = uri.path().to_string();
+            tracing::info!("Original path: {}", new_path);
+            
+            if let Some(prefix) = &path_config.add_prefix {
+                new_path = format!("{}{}", prefix, new_path);
+                tracing::info!("After add_prefix: {}", new_path);
+            }
+            
+            if let Some(prefix) = &path_config.strip_prefix {
+                if new_path.starts_with(prefix) {
+                    new_path = new_path[prefix.len()..].to_string();
+                    tracing::info!("After strip_prefix: {}", new_path);
+                }
+            }
+            
+            if let Some(pattern_replace) = &path_config.pattern_replace {
+                for replace_rule in pattern_replace {
+                    // Simple string replacement for now (could be enhanced with regex)
+                    new_path = new_path.replace(&replace_rule.pattern, &replace_rule.replacement);
+                    tracing::info!("After pattern replace: {}", new_path);
+                }
+            }
+            
+            // Build new URI
+            let mut new_uri = format!("{}", new_path);
+            if let Some(query) = uri.query() {
+                new_uri.push('?');
+                new_uri.push_str(query);
+            }
+            tracing::info!("Final transformed URI: {}", new_uri);
+            
+            *request.uri_mut() = new_uri.parse()
+                .map_err(|e| BackworksError::Proxy(format!("Invalid transformed URI: {}", e)))?;
+        }
+
+        // Transform query parameters
+        if let Some(query_config) = &config.query_transform {
+            let uri = request.uri().clone();
+            let mut query_params: HashMap<String, String> = HashMap::new();
+            
+            // Parse existing query parameters
+            if let Some(query) = uri.query() {
+                for (key, value) in url::form_urlencoded::parse(query.as_bytes()) {
+                    query_params.insert(key.into_owned(), value.into_owned());
+                }
+            }
+            
+            // Add parameters
+            if let Some(add_params) = &query_config.add_params {
+                for (key, value) in add_params {
+                    query_params.insert(key.clone(), value.clone());
+                }
+            }
+            
+            // Remove parameters
+            if let Some(remove_params) = &query_config.remove_params {
+                for key in remove_params {
+                    query_params.remove(key);
+                }
+            }
+            
+            // Rename parameters
+            if let Some(rename_params) = &query_config.rename_params {
+                for (old_key, new_key) in rename_params {
+                    if let Some(value) = query_params.remove(old_key) {
+                        query_params.insert(new_key.clone(), value);
+                    }
+                }
+            }
+            
+            // Rebuild URI with new query parameters
+            let mut new_uri = uri.path().to_string();
+            if !query_params.is_empty() {
+                new_uri.push('?');
+                let query_string = serde_urlencoded::to_string(&query_params)
+                    .map_err(|e| BackworksError::Proxy(format!("Failed to encode query parameters: {}", e)))?;
+                new_uri.push_str(&query_string);
+            }
+            
+            *request.uri_mut() = new_uri.parse()
+                .map_err(|e| BackworksError::Proxy(format!("Invalid transformed URI: {}", e)))?;
+        }
+
+        // Transform body
+        if let Some(body_config) = &config.body_transform {
+            let (parts, body) = request.into_parts();
+            let body_bytes = axum::body::to_bytes(body, usize::MAX).await
+                .map_err(|e| BackworksError::Proxy(format!("Failed to read request body: {}", e)))?;
+            
+            let transformed_body = self.transform_body_content(&body_bytes, body_config).await?;
+            
+            // Rebuild request with new body
+            let new_request = Request::from_parts(parts, Body::from(transformed_body));
+            request = new_request;
+        }
+
+        Ok(request)
+    }
+
+    async fn transform_response(&self, mut response: Response<Body>, config: &TransformConfig) -> BackworksResult<Response<Body>> {
+        tracing::info!("Starting response transformation");
+        
+        // Transform status code
+        if let Some(status_code) = config.force_status_code {
+            tracing::info!("Setting status code to: {}", status_code);
+            *response.status_mut() = StatusCode::from_u16(status_code)
+                .map_err(|e| BackworksError::Proxy(format!("Invalid status code: {}", e)))?;
+        }
+        
+        // Transform headers
+        if let Some(add_headers) = &config.add_headers {
+            tracing::info!("Adding response headers: {:?}", add_headers);
+            let headers = response.headers_mut();
+            for (key, value) in add_headers {
+                if let (Ok(name), Ok(value)) = (key.parse::<HeaderName>(), value.parse::<HeaderValue>()) {
+                    headers.insert(name, value);
+                }
+            }
+        }
+        
+        if let Some(remove_headers) = &config.remove_headers {
+            let headers = response.headers_mut();
+            for key in remove_headers {
+                if let Ok(name) = key.parse::<HeaderName>() {
+                    headers.remove(&name);
+                }
+            }
+        }
+
+        // Transform body
+        if let Some(body_config) = &config.body_transform {
+            let (parts, body) = response.into_parts();
+            let body_bytes = axum::body::to_bytes(body, usize::MAX).await
+                .map_err(|e| BackworksError::Proxy(format!("Failed to read response body: {}", e)))?;
+            
+            let transformed_body = self.transform_body_content(&body_bytes, body_config).await?;
+            
+            // Rebuild response with new body
+            let new_response = Response::from_parts(parts, Body::from(transformed_body));
+            response = new_response;
+        }
+
+        Ok(response)
+    }
+
+    async fn transform_body_content(&self, body_bytes: &[u8], body_config: &BodyTransform) -> BackworksResult<Vec<u8>> {
+        // Try to parse as JSON first for JSON transformations
+        if let Ok(body_str) = std::str::from_utf8(body_bytes) {
+            if let Ok(mut json_value) = serde_json::from_str::<Value>(body_str) {
+                // Apply JSON field additions
+                if let Some(json_field_addition) = &body_config.json_field_addition {
+                    if let Value::Object(ref mut map) = json_value {
+                        for (key, value) in json_field_addition {
+                            map.insert(key.clone(), value.clone());
+                        }
+                    }
+                }
+                
+                // Apply JSON field removals
+                if let Some(json_field_removal) = &body_config.json_field_removal {
+                    if let Value::Object(ref mut map) = json_value {
+                        for key in json_field_removal {
+                            map.remove(key);
+                        }
+                    }
+                }
+                
+                // Apply JSON field renaming
+                if let Some(json_field_renaming) = &body_config.json_field_renaming {
+                    if let Value::Object(ref mut map) = json_value {
+                        for (old_key, new_key) in json_field_renaming {
+                            if let Some(value) = map.remove(old_key) {
+                                map.insert(new_key.clone(), value);
+                            }
+                        }
+                    }
+                }
+                
+                return Ok(serde_json::to_vec(&json_value)
+                    .map_err(|e| BackworksError::Proxy(format!("Failed to serialize JSON: {}", e)))?);
+            }
+        }
+        
+        // Fall back to string transformations
+        let mut content = String::from_utf8_lossy(body_bytes).to_string();
+        
+        if let Some(string_replace) = &body_config.string_replace {
+            for replace_rule in string_replace {
+                if replace_rule.is_regex.unwrap_or(false) {
+                    // TODO: Implement regex replacement when regex crate is available
+                    tracing::warn!("Regex replacement not yet implemented, falling back to string replace");
+                    content = content.replace(&replace_rule.pattern, &replace_rule.replacement);
+                } else {
+                    content = content.replace(&replace_rule.pattern, &replace_rule.replacement);
+                }
+            }
+        }
+        
+        Ok(content.into_bytes())
     }
 
 }

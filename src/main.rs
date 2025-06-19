@@ -106,8 +106,17 @@ async fn main() -> Result<()> {
     }
 }
 
-async fn start_server(config_path: PathBuf, port: Option<u16>, dashboard_port: Option<u16>) -> Result<()> {
+async fn start_server(mut config_path: PathBuf, port: Option<u16>, dashboard_port: Option<u16>) -> Result<()> {
     println!("🚀 Starting Backworks...");
+    
+    // Auto-detect configuration file if default doesn't exist
+    if !config_path.exists() && config_path.file_name().unwrap_or_default() == "project.yaml" {
+        let blueprint_path = PathBuf::from("blueprint.yaml");
+        if blueprint_path.exists() {
+            println!("📋 Using blueprint.yaml (project.yaml not found)");
+            config_path = blueprint_path;
+        }
+    }
     
     // Load configuration
     let config = config::load_config(&config_path).await?;
@@ -134,8 +143,17 @@ async fn start_server(config_path: PathBuf, port: Option<u16>, dashboard_port: O
     Ok(())
 }
 
-async fn validate_config(config_path: PathBuf) -> Result<()> {
+async fn validate_config(mut config_path: PathBuf) -> Result<()> {
     println!("🔍 Validating configuration...");
+    
+    // Auto-detect configuration file if default doesn't exist
+    if !config_path.exists() && config_path.file_name().unwrap_or_default() == "project.yaml" {
+        let blueprint_path = PathBuf::from("blueprint.yaml");
+        if blueprint_path.exists() {
+            println!("📋 Using blueprint.yaml (project.yaml not found)");
+            config_path = blueprint_path;
+        }
+    }
     
     match config::load_config(&config_path).await {
         Ok(config) => {

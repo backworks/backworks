@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use std::collections::HashMap;
 use axum::{
     Router,
     routing::{get, post, put, delete, any},
@@ -14,7 +15,6 @@ use tower_http::{
 };
 use serde_json::Value;
 use serde::{Serialize, Deserialize};
-use std::collections::HashMap;
 use tracing::{info, debug, error};
 
 use crate::config::{BackworksConfig, ExecutionMode};
@@ -31,6 +31,7 @@ pub struct AppState {
     pub plugin_manager: PluginManager,
     pub database_manager: Option<DatabaseManager>,
     pub runtime_manager: RuntimeManager,
+    pub proxy_handlers: Arc<tokio::sync::RwLock<HashMap<String, Arc<ProxyHandler>>>>,
     pub dashboard: Option<Arc<Dashboard>>,
 }
 
@@ -49,11 +50,21 @@ impl BackworksServer {
         let runtime_config = crate::runtime::RuntimeManagerConfig::default();
         let runtime_manager = RuntimeManager::new(runtime_config);
         
+        // Initialize proxy handlers for endpoints that need them
+        let mut proxy_handlers = HashMap::new();
+        for (endpoint_name, endpoint_config) in &config.endpoints {
+            if let Some(ref proxy_config) = endpoint_config.proxy {
+                let proxy_handler = Arc::new(ProxyHandler::new(proxy_config.clone()));
+                proxy_handlers.insert(endpoint_name.clone(), proxy_handler);
+            }
+        }
+        
         let state = AppState {
             config,
             plugin_manager,
             database_manager,
             runtime_manager,
+            proxy_handlers: Arc::new(tokio::sync::RwLock::new(proxy_handlers)),
             dashboard,
         };
         
@@ -61,6 +72,16 @@ impl BackworksServer {
     }
     
     pub async fn start(self) -> Result<()> {
+        // Start all proxy handlers
+        let proxy_handlers = self.state.proxy_handlers.read().await;
+        for (endpoint_name, proxy_handler) in proxy_handlers.iter() {
+            info!("🔀 Starting proxy handler for endpoint: {}", endpoint_name);
+            if let Err(e) = proxy_handler.start().await {
+                error!("Failed to start proxy handler for {}: {}", endpoint_name, e);
+            }
+        }
+        drop(proxy_handlers); // Release the lock
+        
         let app = self.create_app();
         
         let listener = tokio::net::TcpListener::bind(
@@ -277,11 +298,14 @@ async fn handle_endpoint_request(
             }
         }
         ExecutionMode::Proxy => {
-            if let Some(ref proxy_config) = endpoint_config.proxy {
-                // Create a proxy handler for this specific endpoint configuration
-                let proxy_handler = ProxyHandler::new(proxy_config.clone());
-                proxy_handler.start().await.map_err(|e| BackworksError::Proxy(format!("Failed to start proxy: {}", e)))?;
-                proxy_handler.handle_request_data(proxy_config, &request_data).await
+            if let Some(ref _proxy_config) = endpoint_config.proxy {
+                // Get the pre-initialized proxy handler for this endpoint
+                let proxy_handlers = state.proxy_handlers.read().await;
+                if let Some(proxy_handler) = proxy_handlers.get(&endpoint_name) {
+                    proxy_handler.handle_request_data(&endpoint_config.proxy.as_ref().unwrap(), &request_data).await
+                } else {
+                    Err(BackworksError::config("Proxy handler not initialized for endpoint"))
+                }
             } else {
                 Err(BackworksError::config("Proxy mode requires proxy configuration"))
             }
