@@ -74,7 +74,7 @@ backworks start
 Each example follows this structure:
 ```
 example-name/
-├── backworks.yaml          # Main configuration
+├── project.yaml          # Main configuration
 ├── README.md              # Example documentation
 ├── data/                  # Mock data files
 ├── handlers/              # Custom handlers
@@ -115,7 +115,7 @@ Want to contribute an example? Great! Please:
 
 ### Example Contribution Template
 ```yaml
-# your-example/backworks.yaml
+# your-example/project.yaml
 name: "your_example_name"
 description: "Brief description of what this example demonstrates"
 

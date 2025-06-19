@@ -118,6 +118,18 @@ impl Dashboard {
             .route("/api/metrics", get(get_metrics))
             .route("/api/system", get(get_system_metrics))
             .route("/api/architecture", get(get_architecture))
+            .route("/api/performance", get({
+                let state_clone = dashboard_state.clone();
+                move || {
+                    let state = state_clone.clone();
+                    async move {
+                        match get_performance_summary_from_state(&state).await {
+                            Ok(summary) => Json(summary),
+                            Err(_) => Json(serde_json::json!({"error": "Failed to get performance summary"}))
+                        }
+                    }
+                }
+            }))
             .route("/ws", get(websocket_handler))
             .with_state(dashboard_state)
     }
@@ -125,9 +137,8 @@ impl Dashboard {
     pub async fn start(&self) -> BackworksResult<()> {
         tracing::info!("Starting dashboard on port {}", self.config.port);
         
-        // Start background tasks
-        self.start_metrics_collector().await;
-        self.start_architecture_updater().await;
+        // Start background system monitoring
+        self.start_system_monitoring();
         
         // Create and start the dashboard HTTP server
         let app = self.router();
@@ -201,27 +212,47 @@ impl Dashboard {
         Ok(())
     }
 
-    pub async fn update_architecture(&self, nodes: Vec<FlowNode>, edges: Vec<FlowEdge>) -> BackworksResult<()> {
-        let mut architecture = self.architecture.write().await;
-        architecture.nodes = nodes;
-        architecture.edges = edges;
-        architecture.timestamp = chrono::Utc::now();
-
-        // Send real-time event
+    // Enhanced metrics collection with historical tracking
+    pub async fn record_request_with_analytics(
+        &self,
+        method: &str,
+        path: &str,
+        response_time: f64,
+        status_code: u16,
+        user_agent: Option<&str>,
+        ip_address: Option<&str>,
+        request_size: Option<u64>,
+        response_size: Option<u64>,
+    ) -> BackworksResult<()> {
+        // Record basic request
+        self.record_request(method, path, response_time, status_code).await?;
+        
+        // Send enhanced analytics event
         let event = DashboardEvent {
-            event_type: "architecture_update".to_string(),
+            event_type: "enhanced_request".to_string(),
             timestamp: chrono::Utc::now(),
-            data: serde_json::to_value(&*architecture)?,
+            data: serde_json::json!({
+                "method": method,
+                "path": path,
+                "response_time": response_time,
+                "status_code": status_code,
+                "user_agent": user_agent,
+                "ip_address": ip_address,
+                "request_size": request_size,
+                "response_size": response_size,
+                "performance_grade": calculate_performance_grade(response_time, status_code),
+                "trend_indicator": calculate_trend_indicator(response_time)
+            }),
         };
         
         let _ = self.event_sender.send(event);
-        
         Ok(())
     }
 
-    async fn start_metrics_collector(&self) {
+    // Background task to update system metrics periodically
+    pub fn start_system_monitoring(&self) {
+        let metrics = self.metrics.clone();
         let system_metrics = self.system_metrics.clone();
-        let start_time = self.start_time;
         let event_sender = self.event_sender.clone();
         
         tokio::spawn(async move {
@@ -230,54 +261,77 @@ impl Dashboard {
             loop {
                 interval.tick().await;
                 
-                let mut metrics = system_metrics.write().await;
-                metrics.uptime = (chrono::Utc::now() - start_time).num_seconds() as u64;
+                // Update system metrics
+                let mut system_metrics_guard = system_metrics.write().await;
+                system_metrics_guard.cpu_usage = get_cpu_usage();
+                system_metrics_guard.memory_usage = get_memory_usage();
+                system_metrics_guard.uptime = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_secs();
                 
-                // In a real implementation, these would collect actual system metrics
-                metrics.memory_usage = get_memory_usage();
-                metrics.cpu_usage = get_cpu_usage();
+                // Calculate derived metrics
+                let metrics_guard = metrics.read().await;
+                let total_requests: u64 = metrics_guard.values().map(|m| m.request_count).sum();
                 
+                system_metrics_guard.total_requests = total_requests;
+                drop(metrics_guard);
+                
+                // Send system metrics update
                 let event = DashboardEvent {
                     event_type: "system_metrics".to_string(),
                     timestamp: chrono::Utc::now(),
-                    data: serde_json::to_value(&*metrics).unwrap(),
+                    data: serde_json::to_value(&*system_metrics_guard).unwrap_or_default(),
                 };
                 
                 let _ = event_sender.send(event);
+                drop(system_metrics_guard);
             }
         });
     }
 
-    async fn start_architecture_updater(&self) {
-        let architecture = self.architecture.clone();
-        let event_sender = self.event_sender.clone();
+    // Enhanced metrics APIs
+    pub async fn get_performance_summary(&self) -> BackworksResult<serde_json::Value> {
+        let metrics = self.metrics.read().await;
+        let system_metrics = self.system_metrics.read().await;
         
-        tokio::spawn(async move {
-            let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(30));
-            
-            loop {
-                interval.tick().await;
-                
-                // Auto-update architecture based on active endpoints and handlers
-                let nodes = generate_architecture_nodes().await;
-                let edges = generate_architecture_edges(&nodes).await;
-                
-                {
-                    let mut arch = architecture.write().await;
-                    arch.nodes = nodes;
-                    arch.edges = edges;
-                    arch.timestamp = chrono::Utc::now();
-                    
-                    let event = DashboardEvent {
-                        event_type: "architecture_update".to_string(),
-                        timestamp: chrono::Utc::now(),
-                        data: serde_json::to_value(&*arch).unwrap(),
-                    };
-                    
-                    let _ = event_sender.send(event);
-                }
-            }
-        });
+        let total_requests: u64 = metrics.values().map(|m| m.request_count).sum();
+        let total_errors: u64 = metrics.values()
+            .map(|m| (m.error_rate * m.request_count as f64) as u64)
+            .sum();
+        let avg_response_time: f64 = if metrics.is_empty() {
+            0.0
+        } else {
+            metrics.values().map(|m| m.avg_response_time).sum::<f64>() / metrics.len() as f64
+        };
+        
+        // Calculate performance grades
+        let endpoint_grades: Vec<_> = metrics.values()
+            .map(|m| {
+                serde_json::json!({
+                    "endpoint": format!("{} {}", m.method, m.path),
+                    "grade": calculate_performance_grade(m.avg_response_time, 200),
+                    "requests": m.request_count,
+                    "avg_response_time": m.avg_response_time,
+                    "error_rate": m.error_rate
+                })
+            })
+            .collect();
+        
+        Ok(serde_json::json!({
+            "summary": {
+                "total_requests": total_requests,
+                "total_errors": total_errors,
+                "error_rate": if total_requests > 0 { total_errors as f64 / total_requests as f64 } else { 0.0 },
+                "avg_response_time": avg_response_time,
+                "overall_grade": calculate_performance_grade(avg_response_time, 200),
+                "uptime": system_metrics.uptime,
+                "cpu_usage": system_metrics.cpu_usage,
+                "memory_usage": system_metrics.memory_usage
+            },
+            "endpoints": endpoint_grades,
+            "recommendations": generate_performance_recommendations(&metrics, avg_response_time, total_errors as f64 / total_requests as f64)
+        }))
     }
 }
 
@@ -499,6 +553,82 @@ async fn generate_architecture_edges(nodes: &[FlowNode]) -> Vec<FlowEdge> {
     }
 }
 
+// Performance analysis helper functions
+fn calculate_performance_grade(response_time: f64, status_code: u16) -> &'static str {
+    if status_code >= 500 {
+        "F"
+    } else if status_code >= 400 {
+        "D"
+    } else if response_time > 2000.0 {
+        "D"
+    } else if response_time > 1000.0 {
+        "C"
+    } else if response_time > 500.0 {
+        "B"
+    } else if response_time > 200.0 {
+        "A"
+    } else {
+        "A+"
+    }
+}
+
+fn calculate_trend_indicator(response_time: f64) -> &'static str {
+    // This would typically compare against historical data
+    // For now, we'll use response time thresholds
+    if response_time > 1000.0 {
+        "deteriorating"
+    } else if response_time > 500.0 {
+        "stable"
+    } else {
+        "improving"
+    }
+}
+
+fn generate_performance_recommendations(
+    metrics: &std::collections::HashMap<String, EndpointMetrics>,
+    avg_response_time: f64,
+    error_rate: f64,
+) -> Vec<serde_json::Value> {
+    let mut recommendations = Vec::new();
+    
+    if avg_response_time > 1000.0 {
+        recommendations.push(serde_json::json!({
+            "type": "performance",
+            "severity": "high",
+            "title": "High Average Response Time",
+            "description": format!("Average response time is {:.1}ms. Consider optimizing your endpoints.", avg_response_time),
+            "action": "Review slow endpoints and implement caching or optimization strategies"
+        }));
+    }
+    
+    if error_rate > 0.05 {
+        recommendations.push(serde_json::json!({
+            "type": "reliability",
+            "severity": "medium",
+            "title": "High Error Rate",
+            "description": format!("Error rate is {:.1}%. Consider improving error handling.", error_rate * 100.0),
+            "action": "Review error logs and implement better error handling and monitoring"
+        }));
+    }
+    
+    // Find slow endpoints
+    let slow_endpoints: Vec<_> = metrics.values()
+        .filter(|m| m.avg_response_time > 2000.0)
+        .collect();
+    
+    if !slow_endpoints.is_empty() {
+        recommendations.push(serde_json::json!({
+            "type": "optimization",
+            "severity": "medium",
+            "title": "Slow Endpoints Detected",
+            "description": format!("{} endpoints have response times > 2s", slow_endpoints.len()),
+            "action": "Optimize slow endpoints or implement caching strategies"
+        }));
+    }
+    
+    recommendations
+}
+
 // Remove duplicate StreamExt import
 
 #[cfg(test)]
@@ -571,4 +701,48 @@ mod tests {
         assert_eq!(architecture.nodes.len(), 1);
         assert_eq!(architecture.edges.len(), 1);
     }
+}
+
+// Helper function to get performance summary from DashboardState
+async fn get_performance_summary_from_state(state: &DashboardState) -> BackworksResult<serde_json::Value> {
+    let metrics = state.metrics.read().await;
+    let system_metrics = state.system_metrics.read().await;
+    
+    let total_requests: u64 = metrics.values().map(|m| m.request_count).sum();
+    let total_errors: u64 = metrics.values()
+        .map(|m| (m.error_rate * m.request_count as f64) as u64)
+        .sum();
+    let avg_response_time: f64 = if metrics.is_empty() {
+        0.0
+    } else {
+        metrics.values().map(|m| m.avg_response_time).sum::<f64>() / metrics.len() as f64
+    };
+    
+    // Calculate performance grades
+    let endpoint_grades: Vec<_> = metrics.values()
+        .map(|m| {
+            serde_json::json!({
+                "endpoint": format!("{} {}", m.method, m.path),
+                "grade": calculate_performance_grade(m.avg_response_time, 200),
+                "requests": m.request_count,
+                "avg_response_time": m.avg_response_time,
+                "error_rate": m.error_rate
+            })
+        })
+        .collect();
+    
+    Ok(serde_json::json!({
+        "summary": {
+            "total_requests": total_requests,
+            "total_errors": total_errors,
+            "error_rate": if total_requests > 0 { total_errors as f64 / total_requests as f64 } else { 0.0 },
+            "avg_response_time": avg_response_time,
+            "overall_grade": calculate_performance_grade(avg_response_time, 200),
+            "uptime": system_metrics.uptime,
+            "cpu_usage": system_metrics.cpu_usage,
+            "memory_usage": system_metrics.memory_usage
+        },
+        "endpoints": endpoint_grades,
+        "recommendations": generate_performance_recommendations(&metrics, avg_response_time, total_errors as f64 / total_requests.max(1) as f64)
+    }))
 }

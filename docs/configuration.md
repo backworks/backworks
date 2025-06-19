@@ -1,6 +1,6 @@
 # 📝 Configuration Reference
 
-Complete reference for the `backworks.yaml` configuration file.
+Complete reference for the `project.yaml` configuration file.
 
 ## 🎯 Basic Structure
 

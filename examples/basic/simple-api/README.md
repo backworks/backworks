@@ -114,7 +114,7 @@ This example shows how to create a simple user management API with Backworks in 
 
 ## Configuration Breakdown
 
-The `backworks.yaml` file demonstrates:
+The `project.yaml` file demonstrates:
 
 ```yaml
 # API metadata

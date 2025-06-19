@@ -68,7 +68,7 @@ The API starts in mock mode and automatically evolves:
 
 ## Configuration Highlights
 
-The `backworks.yaml` file demonstrates:
+The `project.yaml` file demonstrates:
 - Multi-mode endpoint definitions
 - AI feature configuration
 - Database connection setup
@@ -79,7 +79,7 @@ The `backworks.yaml` file demonstrates:
 
 ```
 .
-├── backworks.yaml          # Main configuration
+├── project.yaml          # Main configuration
 ├── schema.sql             # Database schema
 ├── handlers/
 │   ├── recommendations.py # Python AI handler

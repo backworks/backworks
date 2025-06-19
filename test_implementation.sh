@@ -128,9 +128,9 @@ test_file_exists "docs/dashboard.md" "Dashboard documentation exists"
 test_dir_exists "examples" "Examples directory exists"
 test_file_exists "examples/README.md" "Examples README exists"
 test_dir_exists "examples/basic/simple-api" "Basic example directory exists"
-test_file_exists "examples/basic/simple-api/backworks.yaml" "Basic example config exists"
+test_file_exists "examples/basic/simple-api/project.yaml" "Basic example config exists"
 test_dir_exists "examples/advanced/ai-powered-api" "Advanced example directory exists"
-test_file_exists "examples/advanced/ai-powered-api/backworks.yaml" "Advanced example config exists"
+test_file_exists "examples/advanced/ai-powered-api/project.yaml" "Advanced example config exists"
 
 # Test dashboard
 test_dir_exists "dashboard" "Dashboard directory exists"
@@ -149,9 +149,9 @@ echo -e "\n${YELLOW}📝 Testing Configuration Validation${NC}"
 echo "===================================="
 
 # Test YAML parsing of example configs
-run_test "Basic example YAML is valid" "cd /Volumes/EXT/repos/devstroop/backworks/examples/basic/simple-api && python3 -c 'import yaml; yaml.safe_load(open(\"backworks.yaml\"))'" ""
+run_test "Basic example YAML is valid" "cd /Volumes/EXT/repos/devstroop/backworks/examples/basic/simple-api && python3 -c 'import yaml; yaml.safe_load(open(\"project.yaml\"))'" ""
 
-run_test "Advanced example YAML is valid" "cd /Volumes/EXT/repos/devstroop/backworks/examples/advanced/ai-powered-api && python3 -c 'import yaml; yaml.safe_load(open(\"backworks.yaml\"))'" ""
+run_test "Advanced example YAML is valid" "cd /Volumes/EXT/repos/devstroop/backworks/examples/advanced/ai-powered-api && python3 -c 'import yaml; yaml.safe_load(open(\"project.yaml\"))'" ""
 
 echo -e "\n${YELLOW}🧪 Testing Handler Scripts${NC}"
 echo "==========================="

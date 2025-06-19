@@ -139,7 +139,7 @@ sequenceDiagram
 
 ### 1. Unified Configuration Structure
 ```yaml
-# backworks.yaml - Single configuration file
+# project.yaml - Single configuration file
 name: "my-api"
 mode: "hybrid"
 

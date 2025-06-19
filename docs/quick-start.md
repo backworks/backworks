@@ -25,7 +25,7 @@ docker pull backworks/backworks:latest
 ## 🎯 Your First API in 30 Seconds
 
 ### 1. Create Configuration
-Create a `backworks.yaml` file:
+Create a `project.yaml` file:
 
 ```yaml
 name: "my_first_api"

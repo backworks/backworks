@@ -20,7 +20,7 @@ enum Commands {
     /// Start the Backworks API server
     Start {
         /// Configuration file path
-        #[arg(short, long, default_value = "backworks.yaml")]
+        #[arg(short, long, default_value = "project.yaml")]
         config: PathBuf,
         
         /// Override the server port
@@ -39,7 +39,7 @@ enum Commands {
     /// Validate configuration file
     Validate {
         /// Configuration file path
-        #[arg(short, long, default_value = "backworks.yaml")]
+        #[arg(short, long, default_value = "project.yaml")]
         config: PathBuf,
     },
     
@@ -180,8 +180,8 @@ async fn init_project(name: Option<String>, template: String) -> Result<()> {
     };
     
     // Write configuration file
-    std::fs::write("backworks.yaml", config_content)?;
-    println!("✅ Created backworks.yaml");
+    std::fs::write("project.yaml", config_content)?;
+    println!("✅ Created project.yaml");
     
     // Create directories
     std::fs::create_dir_all("handlers")?;

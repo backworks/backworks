@@ -34,7 +34,7 @@ endpoints:
   users:
     path: "/users"
     mock:
-      data: [{"id": 1, "name": "John Doe"}]' > backworks.yaml
+      data: [{"id": 1, "name": "John Doe"}]' > project.yaml
 
 # Start the API
 backworks start

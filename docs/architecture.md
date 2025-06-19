@@ -32,7 +32,7 @@ The architecture is fundamentally centered around a **minimal core** with a **po
 ```mermaid
 graph TB
     subgraph "Configuration Layer"
-        CONFIG[backworks.yaml]
+        CONFIG[project.yaml]
         PLUGINCONFIG[Plugin Configurations]
         SCHEMA[Configuration Schema]
     end

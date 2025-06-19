@@ -158,7 +158,7 @@ capture:
   export:
     openapi: "./generated/openapi.yaml"
     postman: "./generated/collection.json"
-    backworks: "./generated/backworks.yaml"
+    backworks: "./generated/project.yaml"
     curl_commands: "./generated/curl.sh"
 ```
 
