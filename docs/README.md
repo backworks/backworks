@@ -1,23 +1,31 @@
-# Backworks Documentation
+# 📚 Backworks Documentation
 
-This directory contains all documentation for the Backworks API platform.
+Simple, focused documentation for the **YAML → Backend API** platform.
 
-## Core Documentation
+## 🚀 Getting Started
 
 | Document | Description |
 |----------|-------------|
-| [Architecture](architecture.md) | Detailed explanation of the Backworks architecture |
-| [Mock-Free Architecture](MOCK_FREE_ARCHITECTURE.md) | Overview of the new mock-free design |
-| [Configuration](configuration.md) | Configuration reference and options |
-| [Quick Start](quick-start.md) | Getting started guide |
-| [Modes](modes.md) | Understanding the different modes of operation |
-| [Dashboard](dashboard.md) | Dashboard features and usage |
-| [Plugin Architecture](plugin-architecture.md) | Overview of the plugin system |
-| [AI Features](ai-features.md) | AI capabilities and configuration |
+| [⚡ Quick Start](quick-start.md) | Get running in 5 minutes |
+| [📝 Configuration](configuration.md) | YAML configuration reference |
 
-## Development Documentation
+## 📖 Learn by Example
 
-| Document | Description |
+| Example | Description |
+|---------|-------------|
+| [🌟 Hello World](../examples/hello-world/) | Simplest possible API |
+| [📝 Blog API](../examples/blog-api/) | Complex blog backend |
+| [📋 Task Manager](../examples/task-manager/) | Business application |
+
+## 🏗️ Architecture
+
+For detailed architecture and design principles, see:
+- [📐 ARCHITECTURE.md](../ARCHITECTURE.md) - Technical design
+- [🎯 DIRECTION.md](../DIRECTION.md) - Current direction & principles
+
+---
+
+**Remember:** Backworks transforms YAML configuration into working backend APIs.
 |----------|-------------|
 | [Refactoring Plan](REFACTORING_PLAN.md) | Plan for the mock-free refactoring |
 | [Implementation Roadmap](../IMPLEMENTATION_ROADMAP.md) | Roadmap for implementation phases |

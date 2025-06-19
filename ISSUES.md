@@ -1,119 +1,144 @@
-# Backworks Issue Tracker
+# 🎯 Backworks Issues & Tasks
 
-This document serves as a centralized issue tracker for the Backworks API platform. Issues are organized by component and priority.
+**Last Updated: June 19, 2025**  
+**Focus: Core YAML → API Functionality**
 
-## Current Issues
+---
 
-### Critical (Must Fix)
+## 🚨 **Critical Issues (P0)**
 
-- [x] **BP-001**: Fix remaining integration tests in `capture_integration_tests.rs`
-  - Root cause: Include patterns in test were not matching all intended paths
-  - Affected files: `src/capture.rs`, `tests/capture_integration_tests.rs`
-  - Resolution: Fixed glob pattern matching logic and path comparison in capture.rs
+### 🐛 **Core Functionality**
+- [ ] **#001** - Runtime JavaScript execution not working reliably
+  - **Status**: Investigating
+  - **Impact**: Examples return empty responses
+  - **Next**: Debug handler execution in runtime.rs
 
-- [ ] **BP-002**: Update binary target imports and configuration references
-  - Root cause: Module imports in `main.rs` and binary components need updating
-  - Affected files: `src/main.rs`, `src/config.rs`
+- [ ] **#002** - Dashboard shows static data instead of real metrics
+  - **Status**: Known issue
+  - **Impact**: Dashboard not useful for development
+  - **Next**: Connect dashboard APIs to real data
 
-### High Priority
+### 📖 **Documentation Critical**
+- [ ] **#003** - Quick-start example doesn't work end-to-end
+  - **Status**: Needs validation
+  - **Impact**: New users can't get started
+  - **Next**: Test and fix quick-start.md
 
-- [ ] **BP-003**: Remove all remaining mock or placeholder references
-  - Root cause: Some mock references may still be present in tests or documentation
-  - Affected files: Various test files, documentation
+---
 
-- [ ] **BP-004**: Update all example configurations to use proxy mode by default
-  - Root cause: Some example configs may still reference mock mode
-  - Affected files: Files in `examples/` directory
+## 🚀 **High Priority (P1)**
 
-- [ ] **BP-005**: Implement proper structured logging
-  - Root cause: Currently using `println!` for debugging
-  - Affected files: Multiple source files
+### 🎯 **Core Features**
+- [ ] **#004** - Better error messages for YAML parsing failures
+- [ ] **#005** - Validate config schema before starting server
+- [ ] **#006** - Hot reload on config file changes
 
-### Medium Priority
+### 🧪 **Testing & Validation**
+- [ ] **#007** - Integration tests for all examples
+- [ ] **#008** - Automated testing in CI
+- [ ] **#009** - Cross-platform compatibility testing
 
-- [ ] **BP-006**: Complete implementation of resilient plugin execution
-  - Root cause: Need to finalize the circuit breaker pattern
-  - Affected files: `src/resilience.rs`, `src/plugin.rs`
+### 📊 **Dashboard Improvements**
+- [ ] **#010** - Real-time request logging
+- [ ] **#011** - Actual performance metrics calculation
+- [ ] **#012** - Config file display in dashboard
 
-- [ ] **BP-007**: Update documentation for mock-free architecture
-  - Root cause: Some docs may still reference mock mode
-  - Affected files: Multiple markdown files
+---
 
-- [ ] **BP-008**: Add proper field prefixes for unused variables
-  - Root cause: Some unused variables are causing warnings
-  - Affected files: `src/plugin.rs`, `src/database.rs`, `src/capture.rs`
+## 📋 **Medium Priority (P2)**
 
-### Low Priority
+### 👥 **Developer Experience**
+- [ ] **#013** - `backworks init` command for project templates
+- [ ] **#014** - Better CLI help and usage examples
+- [ ] **#015** - YAML syntax validation with helpful errors
 
-- [ ] **BP-009**: Enhance test coverage for proxy functionality
-  - Root cause: Tests focus mostly on mock functionality
-  - Affected files: Test files
+### 📖 **Documentation**
+- [ ] **#016** - Complete configuration reference
+- [ ] **#017** - Troubleshooting guide
+- [ ] **#018** - Architecture decision records
 
-- [ ] **BP-010**: Optimize performance for large request/response payloads
-  - Root cause: Current implementation may not be optimized for large payloads
-  - Affected files: `src/proxy.rs`, `src/capture.rs`
+### 🎮 **Examples**
+- [ ] **#019** - Add authentication example
+- [ ] **#020** - Add file upload/download example
+- [ ] **#021** - Add WebSocket example
 
-## Completed Issues
+---
 
-- [x] **BP-000**: Remove `src/mock.rs` module
-  - Resolution: Module completely removed, all references updated
+## 🔮 **Future (P3)**
 
-- [x] **BP-011**: Complete dashboard integration with live backend data
-  - Root cause: Dashboard was displaying mock/simulated data instead of real proxy metrics
-  - Affected files: `dashboard/index.html`, `src/dashboard.rs`, `src/server.rs`, `src/engine.rs`
-  - Resolution: Integrated dashboard request recording into main request handler, implemented REST/WebSocket APIs, and created production-ready UI with real-time monitoring, notifications, themes, and export functionality
+### 🏗️ **Architecture**
+- [ ] **#022** - Database mode implementation
+- [ ] **#023** - Proxy mode for capturing APIs
+- [ ] **#024** - Plugin system foundation
 
-- [x] **BP-012**: Successfully implement dashboard integration with live backend data
-  - Root cause: Dashboard integration was completed in previous iteration, but needed testing and polish
-  - Affected files: All dashboard and backend integration files
-  - Resolution: Tested full stack integration, confirmed real-time metrics tracking, dashboard UI working properly with live data from proxy requests
-  - Status: ✅ **PRODUCTION READY**
+### ⚡ **Performance**
+- [ ] **#025** - JavaScript engine optimization
+- [ ] **#026** - Memory usage optimization
+- [ ] **#027** - Startup time optimization
 
-- [x] **BP-013**: Enhanced Analytics and Performance Monitoring System
-  - Root cause: Dashboard needed advanced analytics, performance grading, and intelligent recommendations
-  - Affected files: `src/dashboard.rs`, dashboard APIs, test suite
-  - Resolution: Implemented performance grading system (A+ to F), smart recommendations engine, enhanced system monitoring with 5-second intervals, comprehensive analytics API at `/api/performance`
-  - Status: ✅ **PRODUCTION READY** with comprehensive test validation
+---
 
-- [x] **BP-014**: Comprehensive Dashboard Integration Testing
-  - Root cause: Needed automated testing to validate all dashboard features end-to-end
-  - Affected files: `test_dashboard_integration.sh`, all dashboard components
-  - Resolution: Created comprehensive test suite validating 22+ requests, performance grading, error handling, WebSocket infrastructure, and all API endpoints
-  - Status: ✅ **VERIFIED WORKING** - All features validated in production environment
+## ✅ **Completed**
 
-## Developer Workstreams
+### ✅ **Recent Fixes**
+- [x] **#000** - Fixed syntax error in dashboard.rs (extra closing brace)
+- [x] **#000** - Simplified architecture documentation
+- [x] **#000** - Cleaned up legacy files and confusion
+- [x] **#000** - Created focused examples structure
+- [x] **#000** - Added validation script for testing current state
 
-### Workstream 1: Core Functionality
+---
 
-- Owner: TBD
-- Issues: BP-001, BP-002, BP-003
-- Goal: Ensure core functionality is working without mock mode
+## 🎯 **This Week's Focus**
 
-### Workstream 2: Documentation & Examples
+### **Monday-Tuesday: Core Functionality**
+1. Fix issue #001 - JavaScript runtime execution
+2. Fix issue #002 - Dashboard real data
+3. Validate issue #003 - Quick-start experience
 
-- Owner: TBD
-- Issues: BP-004, BP-007
-- Goal: Update all documentation to reflect mock-free architecture
+### **Wednesday-Thursday: Testing & Validation**
+1. Create integration tests (#007)
+2. Test all examples end-to-end
+3. Fix any discovered issues
 
-### Workstream 3: Plugin Architecture
+### **Friday: Documentation Reality Check**
+1. Update docs based on what actually works
+2. Validate all curl commands in READMEs
+3. Plan next week's priorities
 
-- Owner: TBD
-- Issues: BP-006
-- Goal: Complete the resilient plugin system implementation
+---
 
-### Workstream 4: Testing & Performance
+## 📊 **Issue Metrics**
 
-- Owner: TBD
-- Issues: BP-009, BP-010
-- Goal: Improve test coverage and performance
+| Priority | Open | In Progress | Completed |
+|----------|------|-------------|-----------|
+| P0       | 3    | 0           | 0         |
+| P1       | 9    | 0           | 0         |
+| P2       | 6    | 0           | 0         |
+| P3       | 6    | 0           | 0         |
+| **Total** | **24** | **0** | **3** |
 
-## Process for New Issues
+---
 
-1. Add issue to this tracker with a new ID (BP-XXX)
-2. Include:
-   - Clear description
-   - Root cause (if known)
-   - Affected files
-   - Priority
-3. Assign to a workstream
-4. Update status as work progresses
+## 🔄 **Process**
+
+### **Adding New Issues**
+1. Use descriptive title with category emoji
+2. Assign priority (P0-P3)
+3. Include impact statement
+4. Define "Next" action step
+
+### **Working on Issues**
+1. Move to "In Progress" 
+2. Update with progress notes
+3. Link to relevant commits/PRs
+4. Test thoroughly before closing
+
+### **Reviewing Progress**
+- **Daily**: Check P0 issues
+- **Weekly**: Review all priorities
+- **Monthly**: Adjust scope and priorities
+
+---
+
+**Focus: Make current scope work perfectly before adding complexity.**

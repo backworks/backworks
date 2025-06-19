@@ -4,6 +4,7 @@ use axum::{
     extract::{ws::WebSocket, ws::Message, WebSocketUpgrade},
     response::{Response, IntoResponse},
     routing::{get, Router},
+    http::{StatusCode, header},
     Json,
 };
 use futures::{stream::StreamExt, SinkExt};
@@ -113,10 +114,10 @@ impl Dashboard {
         };
 
         Router::new()
-            .route("/", get(serve_dashboard))
+            .route("/", get(serve_simple_dashboard))
             .route("/dashboard", get(serve_full_dashboard))
-            .route("/api/metrics", get(get_metrics))
-            .route("/api/system", get(get_system_metrics))
+            .route("/api/system", get(get_simple_system_info))
+            .route("/api/metrics", get(get_simple_api_metrics))
             .route("/api/architecture", get(get_architecture))
             .route("/api/performance", get({
                 let state_clone = dashboard_state.clone();
@@ -131,6 +132,10 @@ impl Dashboard {
                 }
             }))
             .route("/ws", get(websocket_handler))
+            .route("/pkg/*file", get(serve_static_files))
+            .route("/assets/*file", get(serve_static_files))
+            // Catch-all for static files with specific extensions
+            .fallback(serve_static_files)
             .with_state(dashboard_state)
     }
 
@@ -333,6 +338,27 @@ impl Dashboard {
             "recommendations": generate_performance_recommendations(&metrics, avg_response_time, total_errors as f64 / total_requests as f64)
         }))
     }
+
+    pub async fn update_architecture(
+        &self,
+        nodes: Vec<FlowNode>,
+        edges: Vec<FlowEdge>,
+    ) -> BackworksResult<()> {
+        let mut architecture = self.architecture.write().await;
+        architecture.nodes = nodes;
+        architecture.edges = edges;
+        architecture.timestamp = chrono::Utc::now();
+        
+        // Send architecture update event
+        let event = DashboardEvent {
+            event_type: "architecture_update".to_string(),
+            timestamp: chrono::Utc::now(),
+            data: serde_json::to_value(&*architecture).unwrap_or_default(),
+        };
+        
+        let _ = self.event_sender.send(event);
+        Ok(())
+    }
 }
 
 #[derive(Clone)]
@@ -344,8 +370,8 @@ struct DashboardState {
 }
 
 async fn serve_full_dashboard() -> Response {
-    // Try to serve the full dashboard HTML file
-    match std::fs::read_to_string("dashboard/index.html") {
+    // Try to serve the Leptos dashboard HTML file
+    match std::fs::read_to_string("dash/dist/index.html") {
         Ok(content) => {
             axum::response::Response::builder()
                 .header("content-type", "text/html")
@@ -354,7 +380,7 @@ async fn serve_full_dashboard() -> Response {
         },
         Err(_) => {
             // Try alternative path
-            match std::fs::read_to_string("../dashboard/index.html") {
+            match std::fs::read_to_string("../dash/dist/index.html") {
                 Ok(content) => {
                     axum::response::Response::builder()
                         .header("content-type", "text/html")
@@ -368,9 +394,10 @@ async fn serve_full_dashboard() -> Response {
                         .body(r#"
 <html>
 <body style="font-family: Arial; background: #1a1a1a; color: #fff; padding: 40px;">
-    <h1>Dashboard Not Found</h1>
-    <p>Could not locate dashboard/index.html</p>
-    <p>Please ensure the dashboard files are in the correct location.</p>
+    <h1>Leptos Dashboard Not Found</h1>
+    <p>Could not locate dash/dist/index.html</p>
+    <p>Please build the Leptos dashboard first:</p>
+    <pre style="background: #333; padding: 10px; border-radius: 4px;">cd dash && trunk build</pre>
     <p><a href="/" style="color: #4a9eff;">Back to Status Page</a></p>
 </body>
 </html>
@@ -382,45 +409,239 @@ async fn serve_full_dashboard() -> Response {
     }
 }
 
-async fn serve_dashboard() -> Response {
-    // Try to serve the dashboard file
-    match std::fs::read_to_string("dashboard/index.html") {
-        Ok(content) => axum::response::Html(content).into_response(),
-        Err(_) => {
-            // Fallback to a basic dashboard message
-            let fallback_html = r#"
+#[derive(Serialize)]
+struct SimpleSystemInfo {
+    uptime: String,
+    total_requests: u64,
+    active_connections: u32,
+    cpu_usage: f32,
+    memory_usage: u64,
+    status: String,
+}
+
+#[derive(Serialize)]
+struct SimpleEndpointMetric {
+    method: String,
+    path: String,
+    request_count: u64,
+    avg_response_time: f64,
+    last_accessed: String,
+}
+
+// Simple API endpoints for the new dashboard
+async fn get_simple_system_info() -> impl IntoResponse {
+    let system_info = SimpleSystemInfo {
+        uptime: "5m 23s".to_string(), // TODO: Calculate real uptime
+        total_requests: 142, // TODO: Get from metrics
+        active_connections: 3,
+        cpu_usage: 15.2,
+        memory_usage: 256,
+        status: "Running".to_string(),
+    };
+    
+    Json(system_info)
+}
+
+async fn get_simple_api_metrics() -> impl IntoResponse {
+    // TODO: Get actual metrics from request tracking
+    let metrics = vec![
+        SimpleEndpointMetric {
+            method: "GET".to_string(),
+            path: "/test".to_string(),
+            request_count: 45,
+            avg_response_time: 12.5,
+            last_accessed: "2 minutes ago".to_string(),
+        },
+        SimpleEndpointMetric {
+            method: "POST".to_string(),
+            path: "/api/data".to_string(),
+            request_count: 23,
+            avg_response_time: 89.2,
+            last_accessed: "30 seconds ago".to_string(),
+        },
+    ];
+    
+    Json(metrics)
+}
+
+async fn serve_simple_dashboard() -> Response {
+    // Simple HTML dashboard that shows what Backworks is doing
+    let dashboard_html = r#"
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Backworks Dashboard</title>
     <style>
-        body { font-family: Arial, sans-serif; margin: 40px; background: #1a1a1a; color: #fff; }
-        .container { max-width: 800px; margin: 0 auto; text-align: center; }
-        .status { background: #333; padding: 20px; border-radius: 8px; margin: 20px 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 20px; background: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .header { background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .header h1 { margin: 0; color: #2563eb; }
+        .header p { margin: 5px 0 0 0; color: #6b7280; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+        .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .card h2 { margin-top: 0; color: #374151; }
+        .metric { display: flex; justify-content: space-between; margin: 10px 0; padding: 10px 0; border-bottom: 1px solid #e5e7eb; }
+        .metric:last-child { border-bottom: none; }
+        .metric-label { font-weight: 500; }
+        .metric-value { font-weight: 600; color: #059669; }
+        .endpoint { background: #f9fafb; padding: 15px; margin: 10px 0; border-radius: 6px; border-left: 4px solid #2563eb; }
+        .endpoint-method { display: inline-block; background: #2563eb; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; }
+        .endpoint-path { font-weight: 600; margin-left: 10px; }
+        .endpoint-desc { color: #6b7280; font-size: 14px; margin-top: 5px; }
+        .logs { background: #1f2937; color: #e5e7eb; padding: 15px; border-radius: 6px; font-family: 'Monaco', 'Consolas', monospace; font-size: 14px; max-height: 300px; overflow-y: auto; }
+        .log-entry { margin: 5px 0; }
+        .log-time { color: #9ca3af; }
+        .log-method { color: #34d399; }
+        .log-path { color: #60a5fa; }
+        .refresh-btn { background: #2563eb; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; }
+        .refresh-btn:hover { background: #1d4ed8; }
+        .status-indicator { width: 12px; height: 12px; border-radius: 50%; display: inline-block; margin-right: 8px; }
+        .status-running { background: #10b981; }
+        .status-stopped { background: #ef4444; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>🚀 Backworks Dashboard</h1>
-        <div class="status">
-            <h2>Dashboard is Running</h2>
-            <p>The Backworks proxy is active and monitoring API traffic.</p>
-            <p>Dashboard UI is available at: <code>/dashboard/index.html</code></p>
+        <div class="header">
+            <h1>🚀 Backworks Dashboard</h1>
+            <p>Real-time insights for your YAML-defined API</p>
         </div>
-        <h3>API Endpoints:</h3>
-        <ul style="text-align: left; max-width: 400px; margin: 0 auto;">
-            <li><a href="/api/metrics" style="color: #4a9eff;">/api/metrics</a> - Endpoint metrics</li>
-            <li><a href="/api/system" style="color: #4a9eff;">/api/system</a> - System metrics</li>
-            <li><a href="/api/architecture" style="color: #4a9eff;">/api/architecture</a> - Architecture diagram</li>
-            <li><strong>/ws</strong> - WebSocket for real-time updates</li>
-        </ul>
+        
+        <div class="grid">
+            <div class="card">
+                <h2>📊 System Status</h2>
+                <div class="metric">
+                    <span class="metric-label">
+                        <span class="status-indicator status-running"></span>Server Status
+                    </span>
+                    <span class="metric-value">Running</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Uptime</span>
+                    <span class="metric-value" id="uptime">--</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Total Requests</span>
+                    <span class="metric-value" id="total-requests">--</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Active Connections</span>
+                    <span class="metric-value" id="active-connections">--</span>
+                </div>
+            </div>
+            
+            <div class="card">
+                <h2>⚡ Performance</h2>
+                <div class="metric">
+                    <span class="metric-label">Avg Response Time</span>
+                    <span class="metric-value" id="avg-response">--</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Success Rate</span>
+                    <span class="metric-value" id="success-rate">--</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Error Rate</span>
+                    <span class="metric-value" id="error-rate">--</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">CPU Usage</span>
+                    <span class="metric-value" id="cpu-usage">--</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card">
+            <h2>� API Endpoints (from YAML)</h2>
+            <div id="endpoints">
+                <div class="endpoint">
+                    <span class="endpoint-method">GET</span>
+                    <span class="endpoint-path">/test</span>
+                    <div class="endpoint-desc">Test endpoint - 0 requests</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card">
+            <h2>📝 Live Request Log</h2>
+            <button class="refresh-btn" onclick="refreshLogs()">🔄 Refresh</button>
+            <div class="logs" id="logs">
+                <div class="log-entry">
+                    <span class="log-time">[Starting...]</span> 
+                    <span class="log-method">INFO</span> 
+                    <span class="log-path">Backworks Dashboard Ready</span>
+                </div>
+            </div>
+        </div>
     </div>
+    
+    <script>
+        // Simple real-time updates
+        async function updateMetrics() {
+            try {
+                const response = await fetch('/api/system');
+                const data = await response.json();
+                
+                document.getElementById('uptime').textContent = data.uptime || '--';
+                document.getElementById('total-requests').textContent = data.total_requests || '0';
+                document.getElementById('active-connections').textContent = data.active_connections || '0';
+                document.getElementById('cpu-usage').textContent = (data.cpu_usage || 0) + '%';
+            } catch (e) {
+                console.log('Metrics update failed:', e);
+            }
+        }
+        
+        async function updateEndpoints() {
+            try {
+                const response = await fetch('/api/metrics');
+                const data = await response.json();
+                
+                const container = document.getElementById('endpoints');
+                container.innerHTML = '';
+                
+                if (data.length === 0) {
+                    container.innerHTML = '<div class="endpoint"><span class="endpoint-method">INFO</span><span class="endpoint-path">No requests yet</span><div class="endpoint-desc">Make some API calls to see metrics</div></div>';
+                } else {
+                    data.forEach(endpoint => {
+                        const div = document.createElement('div');
+                        div.className = 'endpoint';
+                        div.innerHTML = `
+                            <span class="endpoint-method">${endpoint.method}</span>
+                            <span class="endpoint-path">${endpoint.path}</span>
+                            <div class="endpoint-desc">${endpoint.request_count} requests • ${endpoint.avg_response_time.toFixed(2)}ms avg</div>
+                        `;
+                        container.appendChild(div);
+                    });
+                }
+            } catch (e) {
+                console.log('Endpoints update failed:', e);
+            }
+        }
+        
+        function refreshLogs() {
+            const logs = document.getElementById('logs');
+            const now = new Date().toLocaleTimeString();
+            logs.innerHTML += `<div class="log-entry"><span class="log-time">[${now}]</span> <span class="log-method">INFO</span> <span class="log-path">Dashboard refreshed</span></div>`;
+            logs.scrollTop = logs.scrollHeight;
+        }
+        
+        // Update every 5 seconds
+        setInterval(() => {
+            updateMetrics();
+            updateEndpoints();
+        }, 5000);
+        
+        // Initial load
+        updateMetrics();
+        updateEndpoints();
+    </script>
 </body>
 </html>
-            "#;
-            axum::response::Html(fallback_html).into_response()
-        }
-    }
+    "#;
+    
+    axum::response::Html(dashboard_html).into_response()
 }
 
 async fn get_metrics(
@@ -745,4 +966,77 @@ async fn get_performance_summary_from_state(state: &DashboardState) -> Backworks
         "endpoints": endpoint_grades,
         "recommendations": generate_performance_recommendations(&metrics, avg_response_time, total_errors as f64 / total_requests.max(1) as f64)
     }))
+}
+
+async fn serve_static_files(
+    uri: axum::http::Uri,
+) -> impl IntoResponse {
+    let path = uri.path();
+    
+    // Check if this is a static file by extension
+    let is_static_file = path.ends_with(".css") || path.ends_with(".js") || 
+                        path.ends_with(".wasm") || path.ends_with(".png") || 
+                        path.ends_with(".jpg") || path.ends_with(".jpeg") || 
+                        path.ends_with(".svg") || path.ends_with(".ico");
+    
+    if !is_static_file && !path.starts_with("/pkg/") && !path.starts_with("/assets/") {
+        return (StatusCode::NOT_FOUND, "File not found").into_response();
+    }
+    
+    // Map various request paths to the actual file location in dash/dist/
+    let file_path = if path.starts_with("/pkg/") {
+        // Remove /pkg/ prefix and look in dash/dist/
+        let filename = path.strip_prefix("/pkg/").unwrap_or("");
+        format!("dash/dist/{}", filename)
+    } else if path.starts_with("/assets/") {
+        // Assets path
+        format!("dash/dist{}", path)
+    } else {
+        // For root-level requests (CSS, JS, WASM files), look directly in dash/dist/
+        let filename = path.strip_prefix("/").unwrap_or("");
+        format!("dash/dist/{}", filename)
+    };
+    
+    // Determine content type based on file extension
+    let content_type = match std::path::Path::new(&file_path)
+        .extension()
+        .and_then(|ext| ext.to_str())
+    {
+        Some("js") => "application/javascript",
+        Some("wasm") => "application/wasm",
+        Some("css") => "text/css",
+        Some("html") => "text/html",
+        Some("png") => "image/png",
+        Some("jpg") | Some("jpeg") => "image/jpeg",
+        Some("svg") => "image/svg+xml",
+        Some("ico") => "image/x-icon",
+        _ => "application/octet-stream",
+    };
+    
+    // Try to read and serve the file
+    match std::fs::read(&file_path) {
+        Ok(content) => {
+            (
+                StatusCode::OK,
+                [(header::CONTENT_TYPE, content_type)],
+                content,
+            ).into_response()
+        }
+        Err(_) => {
+            // Try alternative path
+            let alt_path = format!("../{}", file_path);
+            match std::fs::read(&alt_path) {
+                Ok(content) => {
+                    (
+                        StatusCode::OK,
+                        [(header::CONTENT_TYPE, content_type)],
+                        content,
+                    ).into_response()
+                }
+                Err(_) => {
+                    (StatusCode::NOT_FOUND, "File not found").into_response()
+                }
+            }
+        }
+    }
 }

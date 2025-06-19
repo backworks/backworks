@@ -1,0 +1,219 @@
+name: "Task Manager API"
+description: "A complete task/todo management backend"
+
+server:
+  host: "0.0.0.0"
+  port: 3000
+
+dashboard:
+  enabled: true
+  port: 3001
+  features:
+    - "metrics"
+    - "api"
+    - "real-time"
+
+mode: "runtime"
+
+endpoints:
+  tasks:
+    path: "/tasks"
+    methods: ["GET", "POST"]
+    description: "Task management"
+    mock_responses:
+      GET:
+        status: 200
+        headers:
+          "Content-Type": "application/json"
+        body:
+          tasks:
+            - id: 1
+              title: "Setup Backworks project"
+              description: "Initialize a new API with YAML config"
+              status: "completed"
+              priority: "high"
+              due_date: "2025-06-20T17:00:00Z"
+              created_at: "2025-06-19T09:00:00Z"
+              assigned_to: "john@example.com"
+              tags: ["setup", "urgent"]
+            - id: 2
+              title: "Write API documentation"
+              description: "Document all endpoints and usage"
+              status: "in_progress"
+              priority: "medium"
+              due_date: "2025-06-22T12:00:00Z"
+              created_at: "2025-06-19T10:00:00Z"
+              assigned_to: "jane@example.com"
+              tags: ["documentation"]
+            - id: 3
+              title: "Add authentication"
+              description: "Implement JWT token authentication"
+              status: "todo"
+              priority: "high"
+              due_date: "2025-06-25T15:00:00Z"
+              created_at: "2025-06-19T11:00:00Z"
+              assigned_to: "bob@example.com"
+              tags: ["security", "auth"]
+          summary:
+            total: 3
+            completed: 1
+            in_progress: 1
+            todo: 1
+            overdue: 0
+      POST:
+        status: 201
+        headers:
+          "Content-Type": "application/json"
+        body:
+          id: 4
+          title: "New Task"
+          status: "todo"
+          message: "Task created successfully"
+
+  task_detail:
+    path: "/tasks/{id}"
+    methods: ["GET", "PUT", "DELETE"]
+    description: "Individual task operations"
+    mock_responses:
+      GET:
+        status: 200
+        headers:
+          "Content-Type": "application/json"
+        body:
+          id: 1
+          title: "Setup Backworks project"
+          description: "Initialize a new API with YAML config"
+          status: "completed"
+          priority: "high"
+          due_date: "2025-06-20T17:00:00Z"
+          created_at: "2025-06-19T09:00:00Z"
+          updated_at: "2025-06-19T09:30:00Z"
+          assigned_to: "john@example.com"
+          tags: ["setup", "urgent"]
+          comments:
+            - id: 1
+              text: "Started working on this"
+              author: "john@example.com"
+              created_at: "2025-06-19T09:15:00Z"
+            - id: 2
+              text: "Completed successfully!"
+              author: "john@example.com"
+              created_at: "2025-06-19T09:30:00Z"
+          time_spent: "2 hours"
+          attachments:
+            - name: "config.yaml"
+              url: "/files/config.yaml"
+              uploaded_at: "2025-06-19T09:20:00Z"
+      PUT:
+        status: 200
+        headers:
+          "Content-Type": "application/json"
+        body:
+          message: "Task updated successfully"
+          updated_fields: ["status", "priority"]
+      DELETE:
+        status: 204
+
+  projects:
+    path: "/projects"
+    methods: ["GET", "POST"]
+    description: "Project management"
+    mock_responses:
+      GET:
+        status: 200
+        headers:
+          "Content-Type": "application/json"
+        body:
+          - id: 1
+            name: "Backworks API Development"
+            description: "Building the next-gen YAML-driven API platform"
+            status: "active"
+            task_count: 15
+            completed_tasks: 8
+            team_members: ["john@example.com", "jane@example.com", "bob@example.com"]
+            created_at: "2025-06-01T00:00:00Z"
+            deadline: "2025-07-15T00:00:00Z"
+          - id: 2
+            name: "Documentation Overhaul"
+            description: "Comprehensive docs for all features"
+            status: "planning"
+            task_count: 5
+            completed_tasks: 0
+            team_members: ["jane@example.com"]
+            created_at: "2025-06-18T00:00:00Z"
+            deadline: "2025-06-30T00:00:00Z"
+      POST:
+        status: 201
+        headers:
+          "Content-Type": "application/json"
+        body:
+          id: 3
+          name: "New Project"
+          message: "Project created successfully"
+
+  team:
+    path: "/team"
+    methods: ["GET"]
+    description: "Team members and their workload"
+    mock_responses:
+      GET:
+        status: 200
+        headers:
+          "Content-Type": "application/json"
+        body:
+          - email: "john@example.com"
+            name: "John Doe"
+            role: "Lead Developer"
+            active_tasks: 3
+            completed_tasks: 12
+            workload: "medium"
+            availability: "available"
+            skills: ["rust", "api-design", "yaml"]
+          - email: "jane@example.com"
+            name: "Jane Smith"
+            role: "Documentation Lead"
+            active_tasks: 2
+            completed_tasks: 8
+            workload: "light"
+            availability: "available"
+            skills: ["writing", "ui-ux", "testing"]
+          - email: "bob@example.com"
+            name: "Bob Wilson"
+            role: "Security Engineer"
+            active_tasks: 4
+            completed_tasks: 6
+            workload: "heavy"
+            availability: "busy"
+            skills: ["security", "auth", "devops"]
+
+  reports:
+    path: "/reports/productivity"
+    methods: ["GET"]
+    description: "Productivity and progress reports"
+    mock_responses:
+      GET:
+        status: 200
+        headers:
+          "Content-Type": "application/json"
+        body:
+          period: "last_7_days"
+          tasks_completed: 15
+          tasks_created: 12
+          average_completion_time: "2.5 days"
+          productivity_score: 85
+          trends:
+            completion_rate: "+12%"
+            creation_rate: "-5%"
+            team_velocity: "+8%"
+          top_performers:
+            - name: "John Doe"
+              tasks_completed: 6
+              efficiency: 92
+            - name: "Jane Smith"
+              tasks_completed: 4
+              efficiency: 88
+          bottlenecks:
+            - area: "Code Review"
+              delay_hours: 24
+            - area: "Testing"
+              delay_hours: 18

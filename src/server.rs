@@ -300,7 +300,29 @@ async fn handle_endpoint_request(
     
     match result {
         Ok(response) => {
-            // Parse the JSON string response to a Value for proper JSON response
+            // Try to parse as structured response first
+            if let Ok(structured_response) = serde_json::from_str::<serde_json::Value>(&response) {
+                if let (Some(status), Some(body)) = (
+                    structured_response.get("status").and_then(|s| s.as_u64()),
+                    structured_response.get("body")
+                ) {
+                    // Structured response with status, headers, body
+                    let status_code = StatusCode::from_u16(status as u16)
+                        .unwrap_or(StatusCode::OK);
+                    
+                    let response_time = start_time.elapsed().as_millis() as f64;
+                    if let Some(ref dashboard) = state.dashboard {
+                        let path = format!("/{}", endpoint_name);
+                        if let Err(e) = dashboard.record_request(&method, &path, response_time, status as u16).await {
+                            error!("Failed to record request to dashboard: {}", e);
+                        }
+                    }
+                    
+                    return Ok((status_code, Json(body.clone())));
+                }
+            }
+            
+            // Fallback: treat as simple JSON response
             let json_value: serde_json::Value = serde_json::from_str(&response)
                 .unwrap_or_else(|_| serde_json::json!({"response": response}));
             

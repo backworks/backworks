@@ -222,41 +222,49 @@ impl RuntimeManager {
     }
     
     async fn execute_javascript_handler(&self, handler_code: &str, request_data: &str) -> BackworksResult<String> {
+        // Create a wrapper script that handles the function execution
+        let wrapper_script = format!(r#"
+// Parse request data
+const request = JSON.parse(process.argv[2] || '{{}}');
+
+// Handler function
+{}
+
+// Execute handler and output result
+try {{
+    const result = handler(request);
+    console.log(JSON.stringify(result));
+}} catch (error) {{
+    console.error('Handler error:', error.message);
+    process.exit(1);
+}}
+"#, handler_code);
+
         // Create a temporary file for the handler
         let temp_file = format!("/tmp/backworks_handler_{}.js", Uuid::new_v4());
-        tokio::fs::write(&temp_file, handler_code).await
+        tokio::fs::write(&temp_file, wrapper_script).await
             .map_err(|e| BackworksError::runtime(format!("Failed to write handler file: {}", e)))?;
         
-        // Execute the handler
-        let mut output = Command::new("node")
+        // Execute the handler with request data as argument
+        let output = Command::new("node")
             .arg(&temp_file)
-            .stdin(Stdio::piped())
+            .arg(request_data)
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()
-            .map_err(|e| BackworksError::runtime(format!("Failed to spawn Node.js process: {}", e)))?;
-        
-        // Write request data to stdin
-        if let Some(mut stdin) = output.stdin.take() {
-            use tokio::io::AsyncWriteExt;
-            stdin.write_all(request_data.as_bytes()).await
-                .map_err(|e| BackworksError::runtime(format!("Failed to write to handler stdin: {}", e)))?;
-            stdin.shutdown().await
-                .map_err(|e| BackworksError::runtime(format!("Failed to close handler stdin: {}", e)))?;
-        }
-        
-        // Wait for completion and get output
-        let result = output.wait_with_output().await
+            .map_err(|e| BackworksError::runtime(format!("Failed to spawn Node.js process: {}", e)))?
+            .wait_with_output()
+            .await
             .map_err(|e| BackworksError::runtime(format!("Handler execution failed: {}", e)))?;
-        
+
         // Clean up temp file
         let _ = tokio::fs::remove_file(&temp_file).await;
         
-        if result.status.success() {
-            String::from_utf8(result.stdout)
+        if output.status.success() {
+            String::from_utf8(output.stdout)
                 .map_err(|e| BackworksError::runtime(format!("Invalid UTF-8 output: {}", e)))
         } else {
-            let error = String::from_utf8_lossy(&result.stderr);
+            let error = String::from_utf8_lossy(&output.stderr);
             Err(BackworksError::runtime(format!("Handler execution error: {}", error)))
         }
     }
