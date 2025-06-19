@@ -1,0 +1,75 @@
+name: "Status Test API"
+description: "Test different status codes"
+
+server:
+  host: "0.0.0.0"
+  port: 3004
+
+dashboard:
+  enabled: true
+  port: 3005
+
+mode: "runtime"
+
+runtime:
+  language: "javascript"
+  handler: "simple"
+  timeout: 5000
+
+endpoints:
+  created:
+    path: "/created"
+    methods: ["POST"]
+    description: "Return 201 Created"
+    runtime:
+      language: "javascript"
+      handler: |
+        function handler(req, res) {
+          return {
+            status: 201,
+            headers: { "Content-Type": "application/json" },
+            body: {
+              message: "Resource created successfully",
+              id: 12345
+            }
+          };
+        }
+
+  not_found:
+    path: "/not-found"
+    methods: ["GET"]
+    description: "Return 404 Not Found"
+    runtime:
+      language: "javascript"
+      handler: |
+        function handler(req, res) {
+          return {
+            status: 404,
+            headers: { "Content-Type": "application/json" },
+            body: {
+              error: "Resource not found",
+              code: "NOT_FOUND"
+            }
+          };
+        }
+
+  validation_error:
+    path: "/validation-error"
+    methods: ["POST"]
+    description: "Return 422 Validation Error"
+    runtime:
+      language: "javascript"
+      handler: |
+        function handler(req, res) {
+          return {
+            status: 422,
+            headers: { "Content-Type": "application/json" },
+            body: {
+              error: "Validation failed",
+              details: [
+                "Name is required",
+                "Email must be valid"
+              ]
+            }
+          };
+        }

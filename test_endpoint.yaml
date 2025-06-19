@@ -1,0 +1,32 @@
+name: "Test Structured Response API"
+description: "Testing structured response handling"
+
+server:
+  host: "0.0.0.0"
+  port: 3004
+
+mode: "runtime"
+
+runtime:
+  language: "javascript"
+  handler: "simple"
+  timeout: 5000
+
+endpoints:
+  test:
+    path: "/test"
+    method: "GET"
+    runtime:
+      language: "javascript"
+      handler: |
+        function handler(req, res) {
+          return {
+            status: 400,
+            headers: { "Content-Type": "application/json" },
+            body: {
+              error: "Bad Request Test",
+              status_code: 400,
+              success: false
+            }
+          };
+        }
