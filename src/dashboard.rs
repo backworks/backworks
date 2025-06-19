@@ -2,7 +2,7 @@ use crate::config::DashboardConfig;
 use crate::error::{BackworksResult, BackworksError};
 use axum::{
     extract::{ws::WebSocket, ws::Message, WebSocketUpgrade},
-    response::{Html, Response, IntoResponse},
+    response::{Response, IntoResponse},
     routing::{get, Router},
     Json,
 };

@@ -1,0 +1,49 @@
+name: "Backworks Simple Test"
+version: "1.0.0"
+description: "Simple test without external dependencies"
+
+mode: "runtime"
+port: 8080
+
+# Dashboard configuration
+dashboard:
+  enabled: true
+  port: 8081
+  title: "Backworks Dashboard"
+
+# Simple test endpoints using runtime mode
+endpoints:
+  hello:
+    path: "/hello"
+    methods: ["GET"]
+    description: "Simple hello endpoint"
+    mode: "runtime"
+    runtime:
+      language: "javascript"
+      type: "inline"
+      code: |
+        {
+          "message": "Hello from Backworks!",
+          "timestamp": new Date().toISOString(),
+          "endpoint": "hello"
+        }
+  
+  echo:
+    path: "/echo"
+    methods: ["POST"]
+    description: "Echo endpoint that returns request data"
+    mode: "runtime"
+    runtime:
+      language: "javascript"
+      type: "inline"
+      code: |
+        {
+          "echo": "Request received",
+          "method": method,
+          "timestamp": new Date().toISOString(),
+          "body": body
+        }
+
+# AI configuration (disabled for testing)
+ai:
+  enabled: false

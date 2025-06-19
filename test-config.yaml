@@ -19,9 +19,8 @@ endpoints:
     description: "Users endpoint for testing"
     mode: "proxy"
     proxy:
-      target: "https://jsonplaceholder.typicode.com"
-      path_rewrite:
-        "/users": "/users"
+      target: "https://jsonplaceholder.typicode.com/users"
+      preserve_path: false
   
   posts:
     path: "/posts"
@@ -29,9 +28,17 @@ endpoints:
     description: "Posts endpoint for testing"
     mode: "proxy"
     proxy:
-      target: "https://jsonplaceholder.typicode.com"
-      path_rewrite:
-        "/posts": "/posts"
+      target: "https://jsonplaceholder.typicode.com/posts"
+      preserve_path: false
+  
+  user_by_id:
+    path: "/users/{id}"
+    methods: ["GET", "PUT", "DELETE"]
+    description: "Individual user by ID"
+    mode: "proxy"
+    proxy:
+      target: "https://jsonplaceholder.typicode.com/users/{id}"
+      preserve_path: false
 
 # AI configuration (for future use)
 ai:

@@ -646,7 +646,57 @@ impl ProxyHandler {
     }
 
     /// Handle request with ProxyConfig and RequestData (for compatibility)
-    pub async fn handle_request_data(&self, config: &ProxyConfig, request_data: &crate::server::RequestData) -> BackworksResult<String> {
+    pub async fn handle_request_data(&self, _config: &ProxyConfig, request_data: &crate::server::RequestData) -> BackworksResult<String> {
+        // Convert RequestData to HTTP Request<Body>
+        let method = request_data.method.parse::<http::Method>()
+            .map_err(|e| BackworksError::Proxy(format!("Invalid HTTP method: {}", e)))?;
+        
+        // Build URI from path_params and query_params
+        let default_path = "/".to_string();
+        let path = request_data.path_params.get("path").unwrap_or(&default_path);
+        let query_string = if !request_data.query_params.is_empty() {
+            format!("?{}", serde_urlencoded::to_string(&request_data.query_params).unwrap_or_default())
+        } else {
+            String::new()
+        };
+        
+        let uri = format!("{}{}", path, query_string);
+        
+        let mut request_builder = Request::builder()
+            .method(method)
+            .uri(uri);
+        
+        // Add headers
+        for (key, value) in &request_data.headers {
+            request_builder = request_builder.header(key, value);
+        }
+        
+        // Create request body
+        let body_bytes = if let Some(ref body_value) = request_data.body {
+            serde_json::to_vec(body_value).unwrap_or_default()
+        } else {
+            Vec::new()
+        };
+        
+        let request = request_builder
+            .body(Body::from(body_bytes))
+            .map_err(|e| BackworksError::Proxy(format!("Failed to build request: {}", e)))?;
+        
+        // Use the existing handle_request method
+        match self.handle_request(request).await {
+            Ok(response) => {
+                let body_bytes = axum::body::to_bytes(response.into_body(), usize::MAX).await
+                    .map_err(|e| BackworksError::Proxy(format!("Failed to read proxy response: {}", e)))?;
+                
+                // Return raw response body for production use
+                Ok(String::from_utf8_lossy(&body_bytes).to_string())
+            }
+            Err(e) => Err(e),
+        }
+    }
+
+    // Legacy method for testing - returns wrapped response with metadata
+    pub async fn handle_request_data_with_metadata(&self, config: &ProxyConfig, request_data: &crate::server::RequestData) -> BackworksResult<String> {
         // Convert RequestData to HTTP Request<Body>
         let method = request_data.method.parse::<http::Method>()
             .map_err(|e| BackworksError::Proxy(format!("Invalid HTTP method: {}", e)))?;

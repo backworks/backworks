@@ -259,7 +259,7 @@ async fn handle_endpoint_request(
         }
         ExecutionMode::Database => {
             if let Some(ref db_manager) = state.database_manager {
-                if let Some(ref db_config) = endpoint_config.database {
+                if let Some(ref _db_config) = endpoint_config.database {
                     // Convert EndpointDatabaseConfig to DatabaseConfig for now
                     let full_db_config = crate::config::DatabaseConfig {
                         db_type: "sqlite".to_string(), // Default type

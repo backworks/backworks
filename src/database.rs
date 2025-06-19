@@ -1,6 +1,5 @@
 use crate::config::DatabaseConfig;
 use crate::error::{BackworksError, BackworksResult};
-use crate::config::PoolConfig;
 use serde::{Deserialize, Serialize};
 use sqlx::{Any, AnyPool, Column, Row, TypeInfo};
 use std::collections::HashMap;

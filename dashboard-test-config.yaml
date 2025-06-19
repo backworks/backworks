@@ -1,0 +1,26 @@
+name: "Backworks Dashboard Test"
+version: "1.0.0"
+description: "Test configuration focused on dashboard functionality"
+
+mode: "proxy"
+port: 8080
+
+# Dashboard configuration
+dashboard:
+  enabled: true
+  port: 8081
+  title: "Backworks Dashboard Demo"
+
+# Simple proxy endpoints
+endpoints:
+  test_endpoint:
+    path: "/test"
+    methods: ["GET"]
+    description: "Test endpoint that generates demo data"
+    mode: "proxy" 
+    proxy:
+      target: "https://httpbin.org/json"
+
+# AI configuration (disabled for testing)
+ai:
+  enabled: false
