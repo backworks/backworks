@@ -1,75 +1,211 @@
-# Task Manager API
+# Task Manager API Example
 
-A complete task/todo management backend with teams, projects, and reporting.
+A comprehensive task management backend demonstrating complex business logic, validation, and advanced API patterns.
 
-## 🎯 What This Creates
+## 🚀 Features
 
-**YAML Configuration** → **Full Task Management API**
+- **Complete Task Management** - Full CRUD with status tracking
+- **Advanced Filtering** - Filter by status, priority, assignee, search
+- **User Management** - Team members with workload tracking
+- **Input Validation** - Comprehensive validation with error handling
+- **Business Logic** - Complex workflows and state management
+- **Pagination Support** - Handle large datasets efficiently
+- **Rich Data Models** - Detailed task and user information
 
-### Core Features:
-- ✅ **Task CRUD** - Create, read, update, delete tasks
-- 📋 **Project Management** - Organize tasks into projects  
-- 👥 **Team Management** - Assign tasks to team members
-- 📊 **Productivity Reports** - Track progress and performance
-- 🏷️ **Tags & Priorities** - Organize and prioritize work
-- 💬 **Comments & Attachments** - Rich task details
+## 📋 Endpoints
 
-### Endpoints:
-- `GET /tasks` - List tasks with summary stats
-- `POST /tasks` - Create new task
-- `GET /tasks/{id}` - Get task details with comments
-- `PUT /tasks/{id}` - Update task
+### Tasks
+- `GET /tasks` - List tasks with filtering and pagination
+  - Query params: `?status=pending`, `?priority=high`, `?assigned_to=email`, `?search=keyword`, `?page=1&limit=10`
+- `POST /tasks` - Create new task (with validation)
+- `GET /tasks/{id}` - Get detailed task information
+- `PUT /tasks/{id}` - Update task (with validation)
 - `DELETE /tasks/{id}` - Delete task
-- `GET /projects` - List projects with progress
-- `POST /projects` - Create new project
-- `GET /team` - Team members and workload
-- `GET /reports/productivity` - Performance analytics
+- `POST /tasks/{id}/complete` - Mark task as completed
 
-## 🚀 Run It
+### Users & Team
+- `GET /users` - List team members with workload stats
+- `GET /users/{id}/tasks` - Get tasks assigned to specific user
+
+## 🏃‍♂️ Running the Example
 
 ```bash
-# From the task-manager directory
-backworks start --config api.yaml
+# From the backworks root directory
+../../target/release/backworks start --config api.yaml
+
+# The API will be available at:
+# - API: http://localhost:3006
+# - Dashboard: http://localhost:3007
 ```
 
-## 🧪 Test It
+## 🧪 Testing the API
 
+### Get all tasks
 ```bash
-# Get all tasks with summary
-curl http://localhost:3000/tasks
+curl http://localhost:3006/tasks
+```
 
-# Get specific task with full details
-curl http://localhost:3000/tasks/1
+### Filter tasks by status
+```bash
+curl "http://localhost:3006/tasks?status=pending"
+```
 
-# Create a new task
-curl -X POST http://localhost:3000/tasks \
+### Search tasks
+```bash
+curl "http://localhost:3006/tasks?search=backworks"
+```
+
+### Get tasks with pagination
+```bash
+curl "http://localhost:3006/tasks?page=1&limit=5"
+```
+
+### Create a new task
+```bash
+curl -X POST http://localhost:3006/tasks \
   -H "Content-Type: application/json" \
   -d '{
-    "title": "Fix bug in authentication", 
+    "title": "Implement user authentication",
+    "description": "Add JWT-based authentication to the API",
     "priority": "high",
-    "assigned_to": "john@example.com"
+    "assigned_to": "john@example.com",
+    "assigned_name": "John Doe",
+    "tags": ["security", "authentication"],
+    "estimated_hours": 12,
+    "due_date": "2025-06-25T18:00:00Z"
   }'
+```
 
-# Get team workload
-curl http://localhost:3000/team
+### Get specific task
+```bash
+curl http://localhost:3006/tasks/1
+```
 
-# Get productivity report
-curl http://localhost:3000/reports/productivity
+### Update a task
+```bash
+curl -X PUT http://localhost:3006/tasks/1 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "status": "completed",
+    "actual_hours": 8
+  }'
+```
+
+### Mark task as completed
+```bash
+curl -X POST http://localhost:3006/tasks/1/complete
+```
+
+### Get team members
+```bash
+curl http://localhost:3006/users
+```
+
+### Get tasks for specific user
+```bash
+curl http://localhost:3006/users/1/tasks
 ```
 
 ## 📊 Dashboard
 
-Visit http://localhost:3001 to see:
-- Real-time task creation/completion metrics
-- API endpoint usage patterns
-- Team productivity insights
+Visit http://localhost:3007 to see:
+- Real-time task metrics and status distribution
+- Team workload and productivity insights
+- Request/response logs for all API calls
+- Performance monitoring and error tracking
 
-## 💡 Advanced Features Demonstrated
+## 🎯 Learning Points
 
-- **Complex nested data** (tasks with comments, attachments)
-- **Business logic simulation** (completion rates, productivity scores)
-- **Realistic workflows** (task status progression)
-- **Team collaboration** (assignments, workload balancing)
-- **Analytics & reporting** (trends, bottlenecks, performance)
+This example demonstrates advanced API patterns:
 
-This shows how Backworks can power sophisticated business applications!
+1. **Complex Filtering** - Multiple query parameters for data filtering
+2. **Input Validation** - Comprehensive validation with detailed error messages
+3. **Business Logic** - Status transitions, completion tracking, workload calculation
+4. **Data Relationships** - Users, tasks, comments, and assignments
+5. **Pagination** - Handling large datasets with page/limit parameters
+6. **Error Handling** - Proper HTTP status codes and structured error responses
+7. **State Management** - Task status transitions and completion tracking
+
+## 🔧 Configuration Highlights
+
+### Complex Validation
+```javascript
+// Multiple validation checks with detailed error messages
+const validStatuses = ['pending', 'in_progress', 'completed'];
+if (req.body.status && !validStatuses.includes(req.body.status)) {
+  return {
+    status: 400,
+    body: { 
+      error: 'Validation failed',
+      message: 'Status must be one of: ' + validStatuses.join(', '),
+      fields: ['status']
+    }
+  };
+}
+```
+
+### Advanced Filtering
+```javascript
+// Multiple filter conditions
+let filteredTasks = tasks;
+if (status) filteredTasks = filteredTasks.filter(t => t.status === status);
+if (priority) filteredTasks = filteredTasks.filter(t => t.priority === priority);
+if (assignee) filteredTasks = filteredTasks.filter(t => t.assigned_to === assignee);
+```
+
+### Pagination Implementation
+```javascript
+// Pagination with page and limit
+const page = parseInt(req.query_params?.page) || 1;
+const limit = parseInt(req.query_params?.limit) || 10;
+const offset = (page - 1) * limit;
+const paginatedTasks = filteredTasks.slice(offset, offset + limit);
+```
+
+### Rich Response Data
+```javascript
+// Comprehensive response with metadata
+return {
+  status: 200,
+  body: {
+    tasks: paginatedTasks,
+    pagination: {
+      page: page,
+      limit: limit,
+      total: filteredTasks.length,
+      pages: Math.ceil(filteredTasks.length / limit)
+    },
+    summary: {
+      total: tasks.length,
+      completed: tasks.filter(t => t.status === 'completed').length,
+      in_progress: tasks.filter(t => t.status === 'in_progress').length,
+      pending: tasks.filter(t => t.status === 'pending').length
+    }
+  }
+};
+```
+
+## 🚀 Next Steps
+
+1. **Add Authentication** - Implement user login and JWT tokens
+2. **Database Integration** - Replace mock data with real database
+3. **Real-time Updates** - Add WebSocket support for live updates
+4. **File Uploads** - Support task attachments
+5. **Email Notifications** - Send task assignment and due date reminders
+6. **Build Your Own** - Use this as a template for your business applications
+
+## 💡 Pro Tips
+
+### Business Logic Patterns
+- **State Validation** - Always validate state transitions
+- **Data Consistency** - Ensure related data stays in sync
+- **Error Context** - Provide specific error messages and field information
+- **Audit Trail** - Track when and who made changes
+
+### API Design Best Practices
+- **Consistent Naming** - Use clear, predictable endpoint names
+- **Proper HTTP Methods** - Use appropriate verbs for different operations
+- **Status Codes** - Return meaningful HTTP status codes
+- **Response Structure** - Keep response formats consistent across endpoints
+
+This example shows how Backworks can handle complex business applications with sophisticated logic, making it suitable for real-world use cases beyond simple prototyping.

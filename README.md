@@ -1,23 +1,35 @@
 # 🚀 Backworks
 
-**Configuration-driven backend platform that works backwards from your needs.**
+**Configuration-driven backend platform that transforms YAML into working APIs.**
 
 ## 🎯 **What is Backworks?**
 
-Backworks transforms YAML configuration into working backend APIs.
+Backworks turns simple YAML configuration files into fully functional backend APIs with built-in monitoring.
 
-**YAML → Working API**
+**YAML → Working API + Dashboard**
 
 ```yaml
 # Write this YAML configuration
 name: "My API"
 mode: "runtime"
+server:
+  port: 3000
+dashboard:
+  enabled: true
+  port: 3001
 endpoints:
   users:
     path: "/users"  
     methods: ["GET"]
     runtime:
-      handler: "return { users: ['John', 'Jane'] }"
+      language: "javascript"
+      handler: |
+        function handler(req, res) {
+          return {
+            status: 200,
+            body: { users: ['John', 'Jane'] }
+          };
+        }
 ```
 
 ```bash
@@ -34,15 +46,20 @@ curl http://localhost:3000/users
 ## ⚡ **Quick Start**
 
 ```bash
-# 1. Try an example
+# 1. Clone and build
+git clone https://github.com/devstroop/backworks
+cd backworks
+cargo build --release
+
+# 2. Try an example
 cd examples/hello-world
-backworks start --config api.yaml
+../../target/release/backworks start --config api.yaml
 
-# 2. Test the API
-curl http://localhost:3000/hello
+# 3. Test the API
+curl http://localhost:3002/hello
 
-# 3. View dashboard
-open http://localhost:3001
+# 4. View dashboard
+open http://localhost:3003
 ```
 
 ---
@@ -51,9 +68,10 @@ open http://localhost:3001
 
 - **🎯 YAML-Driven** - Configuration becomes your backend
 - **⚡ Runtime Execution** - JavaScript handlers for business logic  
-- **📊 Built-in Dashboard** - Real-time API monitoring
-- **🚀 Zero Dependencies** - One binary, runs anywhere
-- **🔄 Hot Reload** - Changes reflect immediately
+- **📊 Built-in Dashboard** - Real-time API monitoring and request logs
+- **🚀 Zero Dependencies** - Single Rust binary, runs anywhere
+- **🔄 Hot Reload** - Configuration changes reflect immediately
+- **🛡️ Error Handling** - Robust error handling and status reporting
 
 ---
 
@@ -76,11 +94,13 @@ YAML Config → Backworks Engine → HTTP API + Dashboard
 ```
 
 - **Configuration-First** - Your YAML defines everything
-- **Runtime Handlers** - JavaScript for custom logic
-- **Integrated Monitoring** - Dashboard shows real-time metrics
+- **Runtime Handlers** - JavaScript for custom business logic
+- **Integrated Monitoring** - Dashboard shows real-time metrics and logs
 - **Simple Deployment** - One process, two ports (API + Dashboard)
+- **Plugin Architecture** - Extensible design for future enhancements
 
-See [ARCHITECTURE.md](./ARCHITECTURE.md) for detailed design principles.
+**Current Implementation:** Runtime mode with JavaScript execution
+**Planned Features:** Database integration, Proxy mode, Plugin system
 
 ---
 
@@ -95,13 +115,17 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) for detailed design principles.
 
 ## 🔧 **Installation**
 
+### **Build from Source**
 ```bash
-# Build from source
-git clone https://github.com/yourusername/backworks
+git clone https://github.com/backworks/backworks
 cd backworks
 cargo build --release
 
-# Run an example
+# The binary will be available at ./target/release/backworks
+```
+
+### **Run an Example**
+```bash
 ./target/release/backworks start --config examples/hello-world/api.yaml
 ```
 
@@ -124,8 +148,9 @@ cargo build --release
 
 ## 🚀 **What's Next?**
 
-**Current:** YAML → Runtime API  
-**Future:** Database integration, Proxy mode, Plugin system
+**Current Status:** Runtime mode with JavaScript handlers ✅  
+**In Development:** Configuration validation, better error handling  
+**Future Roadmap:** Database integration, Proxy mode, Plugin system
 
 **Goal:** Make backend development as simple as writing configuration.
 
@@ -133,10 +158,11 @@ cargo build --release
 
 ## 🤝 **Contributing**
 
-1. Check out the [examples](./examples/) to understand the concept
+1. Check out the [examples](./examples/) to understand the current capabilities
 2. Read [ARCHITECTURE.md](./ARCHITECTURE.md) for design principles  
-3. Start with documentation improvements or example additions
-4. Core features welcome with discussion first
+3. Read [DIRECTION.md](./DIRECTION.md) for current development direction
+4. Start with documentation improvements or example additions
+5. Core features welcome with discussion first
 
 ---
 

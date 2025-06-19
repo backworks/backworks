@@ -3,15 +3,11 @@ description: "A complete blog backend with posts, comments, and users"
 
 server:
   host: "0.0.0.0" 
-  port: 3000
+  port: 3004
 
 dashboard:
   enabled: true
-  port: 3001
-  features:
-    - "metrics"
-    - "api"
-    - "real-time"
+  port: 3005
 
 mode: "runtime"
 
@@ -20,137 +16,341 @@ endpoints:
     path: "/posts"
     methods: ["GET", "POST"]
     description: "Blog posts management"
-    mock_responses:
-      GET:
-        status: 200
-        headers:
-          "Content-Type": "application/json"
-        body:
-          - id: 1
-            title: "Getting Started with Backworks"
-            content: "Backworks makes it easy to create APIs from YAML..."
-            author_id: 1
-            created_at: "2025-06-19T10:00:00Z"
-            tags: ["tutorial", "getting-started"]
-          - id: 2
-            title: "Advanced YAML Patterns"
-            content: "Learn how to structure complex APIs..."
-            author_id: 2
-            created_at: "2025-06-19T09:00:00Z"
-            tags: ["advanced", "yaml"]
-      POST:
-        status: 201
-        headers:
-          "Content-Type": "application/json"
-        body:
-          id: 3
-          title: "New Post"
-          message: "Post created successfully"
+    runtime:
+      language: "javascript"
+      handler: |
+        function handler(req, res) {
+          const posts = [
+            {
+              id: 1,
+              title: "Getting Started with Backworks",
+              content: "Backworks makes it easy to create APIs from YAML configuration. This post shows you how to get started with your first API.",
+              author_id: 1,
+              author_name: "John Doe",
+              created_at: "2025-06-19T10:00:00Z",
+              tags: ["tutorial", "getting-started"],
+              published: true
+            },
+            {
+              id: 2,
+              title: "Advanced YAML Patterns",
+              content: "Learn how to structure complex APIs using advanced YAML patterns and JavaScript handlers.",
+              author_id: 2,
+              author_name: "Jane Smith",
+              created_at: "2025-06-19T09:00:00Z",
+              tags: ["advanced", "yaml"],
+              published: true
+            },
+            {
+              id: 3,
+              title: "Building Real-time APIs",
+              content: "Explore how to build real-time APIs with Backworks and integrate them with your frontend applications.",
+              author_id: 1,
+              author_name: "John Doe",
+              created_at: "2025-06-19T08:00:00Z",
+              tags: ["real-time", "integration"],
+              published: false
+            }
+          ];
+          
+          if (req.method === 'GET') {
+            // Filter by published status if requested
+            const showUnpublished = req.query_params?.include_unpublished === 'true';
+            let filteredPosts = showUnpublished ? posts : posts.filter(p => p.published);
+            
+            // Filter by tag if requested
+            const tag = req.query_params?.tag;
+            if (tag) {
+              filteredPosts = filteredPosts.filter(p => p.tags.includes(tag));
+            }
+            
+            return {
+              status: 200,
+              body: {
+                posts: filteredPosts,
+                count: filteredPosts.length,
+                total: posts.length
+              }
+            };
+          } else if (req.method === 'POST') {
+            if (!req.body?.title || !req.body?.content) {
+              return {
+                status: 400,
+                body: { 
+                  error: 'Validation failed',
+                  message: 'Title and content are required' 
+                }
+              };
+            }
+            
+            const newPost = {
+              id: posts.length + 1,
+              title: req.body.title,
+              content: req.body.content,
+              author_id: req.body.author_id || 1,
+              author_name: req.body.author_name || "Anonymous",
+              created_at: new Date().toISOString(),
+              tags: req.body.tags || [],
+              published: req.body.published || false
+            };
+            
+            return {
+              status: 201,
+              body: {
+                message: 'Post created successfully',
+                post: newPost
+              }
+            };
+          }
+        }
 
   post_detail:
     path: "/posts/{id}"
     methods: ["GET", "PUT", "DELETE"]
     description: "Individual post operations"
-    mock_responses:
-      GET:
-        status: 200
-        headers:
-          "Content-Type": "application/json"
-        body:
-          id: 1
-          title: "Getting Started with Backworks"
-          content: "Backworks makes it easy to create APIs from YAML configuration files..."
-          author:
-            id: 1
-            name: "John Doe"
-            email: "john@example.com"
-          comments:
-            - id: 1
-              content: "Great tutorial!"
-              author: "Jane Smith"
-              created_at: "2025-06-19T11:00:00Z"
-          created_at: "2025-06-19T10:00:00Z"
-          updated_at: "2025-06-19T10:30:00Z"
-      PUT:
-        status: 200
-        headers:
-          "Content-Type": "application/json"
-        body:
-          message: "Post updated successfully"
-      DELETE:
-        status: 204
+    runtime:
+      language: "javascript"
+      handler: |
+        function handler(req, res) {
+          const postId = parseInt(req.path_params.id);
+          
+          // Mock post data
+          const post = {
+            id: postId,
+            title: `Post ${postId}: Getting Started with Backworks`,
+            content: "Backworks makes it easy to create APIs from YAML configuration files. This comprehensive tutorial will guide you through creating your first API, setting up endpoints, and handling requests and responses.",
+            author: {
+              id: 1,
+              name: "John Doe",
+              email: "john@example.com"
+            },
+            created_at: "2025-06-19T10:00:00Z",
+            updated_at: "2025-06-19T10:30:00Z",
+            tags: ["tutorial", "getting-started"],
+            published: true,
+            view_count: Math.floor(Math.random() * 1000)
+          };
+          
+          if (req.method === 'GET') {
+            return {
+              status: 200,
+              body: post
+            };
+          } else if (req.method === 'PUT') {
+            if (!req.body) {
+              return {
+                status: 400,
+                body: { error: 'Request body required' }
+              };
+            }
+            
+            const updatedPost = {
+              ...post,
+              title: req.body.title || post.title,
+              content: req.body.content || post.content,
+              tags: req.body.tags || post.tags,
+              published: req.body.published !== undefined ? req.body.published : post.published,
+              updated_at: new Date().toISOString()
+            };
+            
+            return {
+              status: 200,
+              body: {
+                message: 'Post updated successfully',
+                post: updatedPost
+              }
+            };
+          } else if (req.method === 'DELETE') {
+            return {
+              status: 204,
+              body: null
+            };
+          }
+        }
 
   comments:
     path: "/posts/{post_id}/comments"
     methods: ["GET", "POST"]
     description: "Comments on posts"
-    mock_responses:
-      GET:
-        status: 200
-        headers:
-          "Content-Type": "application/json"
-        body:
-          - id: 1
-            content: "Great tutorial!"
-            author: "Jane Smith"
-            post_id: 1
-            created_at: "2025-06-19T11:00:00Z"
-          - id: 2
-            content: "Very helpful, thanks!"
-            author: "Bob Wilson"
-            post_id: 1
-            created_at: "2025-06-19T11:15:00Z"
-      POST:
-        status: 201
-        headers:
-          "Content-Type": "application/json"
-        body:
-          id: 3
-          message: "Comment added successfully"
+    runtime:
+      language: "javascript"
+      handler: |
+        function handler(req, res) {
+          const postId = parseInt(req.path_params.post_id);
+          
+          const comments = [
+            {
+              id: 1,
+              content: "Great tutorial! This really helped me understand how Backworks works.",
+              author: "Jane Smith",
+              author_email: "jane@example.com",
+              post_id: postId,
+              created_at: "2025-06-19T11:00:00Z",
+              likes: 5
+            },
+            {
+              id: 2,
+              content: "Very helpful, thanks for sharing this knowledge!",
+              author: "Bob Wilson",
+              author_email: "bob@example.com",
+              post_id: postId,
+              created_at: "2025-06-19T11:30:00Z",
+              likes: 3
+            },
+            {
+              id: 3,
+              content: "Looking forward to more tutorials like this.",
+              author: "Alice Johnson",
+              author_email: "alice@example.com",
+              post_id: postId,
+              created_at: "2025-06-19T12:00:00Z",
+              likes: 2
+            }
+          ];
+          
+          if (req.method === 'GET') {
+            return {
+              status: 200,
+              body: {
+                comments: comments,
+                count: comments.length,
+                post_id: postId
+              }
+            };
+          } else if (req.method === 'POST') {
+            if (!req.body?.content || !req.body?.author) {
+              return {
+                status: 400,
+                body: { 
+                  error: 'Validation failed',
+                  message: 'Content and author are required' 
+                }
+              };
+            }
+            
+            const newComment = {
+              id: comments.length + 1,
+              content: req.body.content,
+              author: req.body.author,
+              author_email: req.body.author_email || `${req.body.author.toLowerCase().replace(' ', '.')}@example.com`,
+              post_id: postId,
+              created_at: new Date().toISOString(),
+              likes: 0
+            };
+            
+            return {
+              status: 201,
+              body: {
+                message: 'Comment added successfully',
+                comment: newComment
+              }
+            };
+          }
+        }
 
   authors:
     path: "/authors"
     methods: ["GET"]
     description: "Blog authors"
-    mock_responses:
-      GET:
-        status: 200
-        headers:
-          "Content-Type": "application/json"
-        body:
-          - id: 1
-            name: "John Doe"
-            email: "john@example.com"
-            bio: "Full-stack developer and tech blogger"
-            post_count: 15
-            joined_at: "2024-01-15T00:00:00Z"
-          - id: 2
-            name: "Jane Smith"
-            email: "jane@example.com"
-            bio: "Frontend specialist and UI/UX designer"
-            post_count: 8
-            joined_at: "2024-03-20T00:00:00Z"
+    runtime:
+      language: "javascript"
+      handler: |
+        function handler(req, res) {
+          const authors = [
+            {
+              id: 1,
+              name: "John Doe",
+              email: "john@example.com",
+              bio: "Full-stack developer and tech blogger with 10+ years of experience",
+              post_count: 15,
+              joined_at: "2024-01-15T00:00:00Z",
+              website: "https://johndoe.dev",
+              social: {
+                twitter: "@johndoe",
+                github: "johndoe"
+              }
+            },
+            {
+              id: 2,
+              name: "Jane Smith",
+              email: "jane@example.com",
+              bio: "Frontend specialist and UI/UX designer passionate about accessible web design",
+              post_count: 8,
+              joined_at: "2024-03-20T00:00:00Z",
+              website: "https://janesmith.design",
+              social: {
+                twitter: "@janesmith",
+                github: "janesmith"
+              }
+            }
+          ];
+          
+          return {
+            status: 200,
+            body: {
+              authors: authors,
+              count: authors.length
+            }
+          };
+        }
 
   search:
     path: "/search"
     methods: ["GET"]
     description: "Search posts and comments"
-    mock_responses:
-      GET:
-        status: 200
-        headers:
-          "Content-Type": "application/json"
-        body:
-          query: "backworks"
-          results:
-            posts:
-              - id: 1
-                title: "Getting Started with Backworks"
-                excerpt: "Backworks makes it easy to create APIs..."
-                relevance: 0.95
-            comments:
-              - id: 1
-                content: "Great tutorial!"
-                post_title: "Getting Started with Backworks"
-                relevance: 0.8
-          total_results: 2
+    runtime:
+      language: "javascript"
+      handler: |
+        function handler(req, res) {
+          const query = req.query_params?.q || '';
+          
+          if (!query) {
+            return {
+              status: 400,
+              body: { 
+                error: 'Search query required',
+                message: 'Use ?q=search_term to search' 
+              }
+            };
+          }
+          
+          const searchResults = {
+            query: query,
+            results: {
+              posts: [
+                {
+                  id: 1,
+                  title: "Getting Started with Backworks",
+                  excerpt: "Backworks makes it easy to create APIs from YAML configuration...",
+                  author: "John Doe",
+                  created_at: "2025-06-19T10:00:00Z",
+                  relevance: 0.95
+                },
+                {
+                  id: 2,
+                  title: "Advanced YAML Patterns",
+                  excerpt: "Learn how to structure complex APIs using advanced patterns...",
+                  author: "Jane Smith",
+                  created_at: "2025-06-19T09:00:00Z",
+                  relevance: 0.87
+                }
+              ],
+              comments: [
+                {
+                  id: 1,
+                  content: "Great tutorial! This really helped me understand how Backworks works.",
+                  post_title: "Getting Started with Backworks",
+                  author: "Jane Smith",
+                  relevance: 0.8
+                }
+              ]
+            },
+            total_results: 3,
+            search_time_ms: Math.floor(Math.random() * 50) + 10
+          };
+          
+          return {
+            status: 200,
+            body: searchResults
+          };
+        }

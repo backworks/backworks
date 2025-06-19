@@ -1,103 +1,99 @@
 # 📝 Configuration Reference
 
-Complete reference for the `project.yaml` configuration file.
+Complete reference for Backworks YAML configuration files.
 
 ## 🎯 Basic Structure
 
 ```yaml
 # Required fields
-name: "string"                    # API name
-version: "string"                 # API version (optional)
+name: "string"                    # API name (required)
 description: "string"             # API description (optional)
+version: "string"                 # API version (optional)
 
-# Core configuration
-mode: "string"                    # Execution mode
-endpoints: {}                     # API endpoints definition
-ai: {}                           # AI enhancement settings
-dashboard: {}                    # Visual dashboard settings
+# Server configuration
+server:
+  host: "0.0.0.0"                # Bind address (default: "0.0.0.0")
+  port: 3000                     # API server port (default: 8080)
 
-# Optional integrations
-database: {}                     # Database configuration
-apis: {}                         # External API definitions
-cache: {}                        # Caching configuration
-security: {}                     # Security settings
-monitoring: {}                   # Monitoring and logging
+# Dashboard configuration
+dashboard:
+  enabled: true                  # Enable dashboard (default: false)
+  port: 3001                     # Dashboard port (default: 3000)
+
+# Execution mode
+mode: "runtime"                  # Currently only "runtime" is supported
+
+# API endpoints
+endpoints: {}                    # Endpoint definitions (required)
+
+# Advanced configuration (optional)
+global_headers: {}               # Headers to add to all responses
+logging: {}                      # Logging configuration
 ```
 
-## 🔄 Execution Modes
+## 🔄 Execution Mode
+
+Currently, only one execution mode is supported:
 
 ```yaml
-mode: "mock"                     # Default: Mock responses
-mode: "capture"                  # Capture and analyze requests
-mode: "runtime"                  # Execute custom handlers
-mode: "database"                 # Database-driven responses
-mode: "proxy"                    # Proxy to other services
-mode: "hybrid"                   # Mix of multiple modes
-mode: "evolving"                 # Auto-evolve between modes
+mode: "runtime"                  # Execute JavaScript handlers
 ```
+
+**Planned modes** (not yet implemented):
+- `database` - Direct database operations
+- `proxy` - Proxy to other services  
+- `plugin` - Custom plugin execution
+
+## 🛠️ Server Configuration
+
+```yaml
+server:
+  host: "0.0.0.0"               # Bind address
+                                # - "0.0.0.0" = All interfaces
+                                # - "127.0.0.1" = Localhost only
+                                # - Specific IP address
+  
+  port: 3000                    # Port number (1-65535)
+```
+
+**Defaults:**
+- Host: `0.0.0.0`
+- Port: `8080`
+
+## 📊 Dashboard Configuration
+
+```yaml
+dashboard:
+  enabled: true                 # Enable/disable dashboard
+  port: 3001                   # Dashboard port number
+```
+
+**Features provided:**
+- Real-time request metrics
+- Endpoint monitoring
+- Request logs
+- System health status
 
 ## 🛠️ Endpoints Configuration
 
-### Basic Endpoint
-```yaml
-endpoints:
-  endpoint_name:
-    path: "/api/path"                    # Required: URL path
-    methods: ["GET", "POST"]             # HTTP methods (default: ["GET"])
-    description: "Endpoint description"   # Optional description
-```
+### Basic Endpoint Structure
 
-### Mock Mode Endpoint
 ```yaml
 endpoints:
-  users:
-    path: "/users"
-    methods: ["GET", "POST", "PUT", "DELETE"]
-    
-    # Static mock data
-    mock:
-      data:
-        - id: 1
-          name: "John Doe"
-          email: "john@example.com"
-        - id: 2
-          name: "Jane Smith"
-          email: "jane@example.com"
-    
-    # Dynamic mock responses
-    mock_responses:
-      GET:
-        status: 200
-        headers:
-          "Content-Type": "application/json"
-        body: "${mock.data}"
-        
-      POST:
-        status: 201
-        body:
-          id: "${random_int(1000, 9999)}"
-          name: "${request.body.name}"
-          email: "${request.body.email}"
-          created_at: "${now()}"
-          
-      "GET /users/{id}":
-        status: 200
-        body:
-          id: "${path.id}"
-          name: "User ${path.id}"
-          email: "user${path.id}@example.com"
+  endpoint_name:                 # Unique endpoint identifier
+    path: "/api/path"           # URL path (required)
+    methods: ["GET", "POST"]    # HTTP methods (default: ["GET"])
+    description: "Description"   # Optional endpoint description
+    runtime:                    # JavaScript handler (required for runtime mode)
+      language: "javascript"    # Only "javascript" supported currently
+      handler: |               # JavaScript function code
+        function handler(req, res) {
+          return {
+            status: 200,
+            body: { message: "Hello" }
+          };
+        }
 ```
-
-### Runtime Mode Endpoint
-```yaml
-endpoints:
-  complex_logic:
-    path: "/process"
-    methods: ["POST"]
-    
-    runtime:
-      language: "javascript"           # javascript, python, dotnet, rust, shell
-      handler: "./handlers/process.js" # File path
       # OR inline handler:
       handler: |
         export default async (request, context) => {
@@ -151,448 +147,399 @@ endpoints:
         list: "data"                   # Wrap list responses
         single: "user"                 # Wrap single responses
         
-    # Parameter validation
-    validation:
-      create:
-        name: { type: "string", required: true, max_length: 100 }
-        email: { type: "string", format: "email", required: true }
-      update:
-        name: { type: "string", max_length: 100 }
-        email: { type: "string", format: "email" }
-```
+### Path Parameters
 
-### Proxy Mode Endpoint
+Use `{parameter}` syntax in paths:
+
 ```yaml
 endpoints:
-  external_service:
-    path: "/external/*"
+  user_detail:
+    path: "/users/{id}"
+    methods: ["GET"]
+    runtime:
+      language: "javascript"
+      handler: |
+        function handler(req, res) {
+          const userId = req.path_params.id;
+          return {
+            status: 200,
+            body: { 
+              id: parseInt(userId),
+              name: `User ${userId}` 
+            }
+          };
+        }
+```
+
+### Multiple Path Parameters
+
+```yaml
+endpoints:
+  user_posts:
+    path: "/users/{userId}/posts/{postId}"
+    methods: ["GET"]
+    runtime:
+      language: "javascript"
+      handler: |
+        function handler(req, res) {
+          const { userId, postId } = req.path_params;
+          return {
+            status: 200,
+            body: { 
+              user_id: parseInt(userId),
+              post_id: parseInt(postId),
+              title: `Post ${postId} by User ${userId}`
+            }
+          };
+        }
+```
+
+### HTTP Methods
+
+Supported HTTP methods:
+
+```yaml
+endpoints:
+  full_crud:
+    path: "/items"
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH"]
+    runtime:
+      language: "javascript"
+      handler: |
+        function handler(req, res) {
+          switch(req.method) {
+            case 'GET':
+              return { status: 200, body: { action: 'read' } };
+            case 'POST':
+              return { status: 201, body: { action: 'create', data: req.body } };
+            case 'PUT':
+              return { status: 200, body: { action: 'update', data: req.body } };
+            case 'DELETE':
+              return { status: 204, body: null };
+            case 'PATCH':
+              return { status: 200, body: { action: 'partial_update', data: req.body } };
+            default:
+              return { status: 405, body: { error: 'Method not allowed' } };
+          }
+        }
+```
+
+## 📝 JavaScript Handler Reference
+
+### Request Object (req)
+
+The `req` object contains:
+
+```javascript
+{
+  method: "GET",                    // HTTP method
+  path: "/users/123",              // Full request path
+  path_params: { id: "123" },      // Path parameters from {id} syntax
+  query_params: { page: "1" },     // Query string parameters
+  headers: {                       // Request headers
+    "content-type": "application/json",
+    "user-agent": "curl/7.68.0"
+  },
+  body: { name: "John" }           // Parsed request body (JSON)
+}
+```
+
+### Response Object
+
+Your handler must return an object with:
+
+```javascript
+{
+  status: 200,                     // HTTP status code (required)
+  headers: {                       // Response headers (optional)
+    "Content-Type": "application/json",
+    "Cache-Control": "no-cache"
+  },
+  body: {                         // Response body (optional)
+    message: "Success",
+    data: [...],
+    meta: { count: 10 }
+  }
+}
+```
+
+### Handler Examples
+
+#### Simple GET endpoint
+```javascript
+function handler(req, res) {
+  return {
+    status: 200,
+    body: { 
+      message: "Hello, World!",
+      timestamp: new Date().toISOString()
+    }
+  };
+}
+```
+
+#### POST endpoint with validation
+```javascript
+function handler(req, res) {
+  if (req.method !== 'POST') {
+    return { status: 405, body: { error: 'Method not allowed' } };
+  }
+  
+  if (!req.body || !req.body.name) {
+    return { 
+      status: 400, 
+      body: { error: 'Name is required' } 
+    };
+  }
+  
+  return {
+    status: 201,
+    body: {
+      message: 'Created successfully',
+      data: {
+        id: Math.floor(Math.random() * 1000),
+        name: req.body.name,
+        created_at: new Date().toISOString()
+      }
+    }
+  };
+}
+```
+
+#### Path parameters and query strings
+```javascript
+function handler(req, res) {
+  const userId = req.path_params?.id;
+  const includeDetails = req.query_params?.details === 'true';
+  
+  const user = {
+    id: parseInt(userId),
+    name: `User ${userId}`,
+    email: `user${userId}@example.com`
+  };
+  
+  if (includeDetails) {
+    user.created_at = new Date().toISOString();
+    user.last_login = new Date(Date.now() - 86400000).toISOString();
+  }
+  
+  return { status: 200, body: user };
+}
+```
+
+#### Error handling
+```javascript
+function handler(req, res) {
+  try {
+    // Simulate some processing
+    if (Math.random() < 0.1) {
+      throw new Error('Random error occurred');
+    }
     
-    proxy:
-      target: "https://api.external.com"   # Target URL
-      strip_prefix: "/external"            # Remove prefix before forwarding
-      timeout: 30                          # Request timeout
-      
-      # Request transformation
-      transform_request:
-        add_headers:
-          "X-API-Key": "${EXTERNAL_API_KEY}"
-          "User-Agent": "Backworks/1.0"
-        remove_headers: ["Authorization"]
-        
-      # Response transformation  
-      transform_response:
-        add_headers:
-          "X-Proxied-By": "Backworks"
-        status_code_mapping:
-          404: 204                          # Map 404 to 204
+    return {
+      status: 200,
+      body: { success: true, data: 'Processed successfully' }
+    };
+  } catch (error) {
+    return {
+      status: 500,
+      body: { 
+        error: 'Internal server error',
+        message: error.message,
+        timestamp: new Date().toISOString()
+      }
+    };
+  }
+}
 ```
 
-## 🤖 AI Configuration
+## 🔧 Advanced Configuration
+
+### Global Headers
+
+Add headers to all responses:
 
 ```yaml
-ai:
-  enabled: true                          # Enable AI features
-  
-  # AI capabilities
-  features:
-    - "pattern_recognition"              # Recognize API usage patterns
-    - "schema_prediction"                # Predict missing schema fields
-    - "performance_insights"             # Performance optimization suggestions
-    - "anomaly_detection"                # Detect unusual patterns
-    - "mock_improvement"                 # Improve mock data over time
-    - "documentation_generation"         # Auto-generate documentation
-  
-  # Model configuration
-  models:
-    pattern_classifier:
-      type: "onnx"                       # onnx or candle
-      path: "./models/patterns.onnx"
-      confidence_threshold: 0.8
-      
-    schema_predictor:
-      type: "candle"
-      path: "./models/schema.safetensors"
-      
-  # Learning configuration
-  learning:
-    enabled: true
-    retention_days: 30                   # How long to keep learning data
-    export_insights: true                # Export insights to files
-    
-  # Custom AI features per endpoint
-  endpoint_ai:
-    users:
-      generate_realistic_data: true      # AI-generated mock data
-      analyze_usage_patterns: true       # Track usage patterns
-      predict_missing_fields: true       # Suggest missing fields
+global_headers:
+  "X-API-Version": "1.0"
+  "X-Powered-By": "Backworks"
+  "Access-Control-Allow-Origin": "*"
 ```
 
-## 🔌 External APIs Configuration
+### Logging Configuration
 
 ```yaml
-apis:
-  # Bearer token authentication
-  stripe:
-    base_url: "https://api.stripe.com/v1"
-    authentication:
-      type: "bearer"
-      token_env: "STRIPE_SECRET_KEY"
-    headers:
-      "Content-Type": "application/json"
-    timeout: 30
-    rate_limit:
-      requests_per_minute: 100
-      
-  # OAuth2 authentication
-  salesforce:
-    base_url: "https://your-instance.salesforce.com/services/data/v55.0"
-    authentication:
-      type: "oauth2"
-      client_id_env: "SALESFORCE_CLIENT_ID"
-      client_secret_env: "SALESFORCE_CLIENT_SECRET"
-      token_url: "https://login.salesforce.com/services/oauth2/token"
-      scope: "api"
-      
-  # API Key authentication
-  weather:
-    base_url: "https://api.openweathermap.org/data/2.5"
-    authentication:
-      type: "api_key"
-      key_env: "WEATHER_API_KEY"
-      location: "query"                  # query or header
-      parameter: "appid"                 # Parameter name
-      
-  # Basic authentication
-  legacy_system:
-    base_url: "https://legacy.company.com/api"
-    authentication:
-      type: "basic"
-      username_env: "LEGACY_USERNAME"
-      password_env: "LEGACY_PASSWORD"
-      
-  # Custom authentication
-  custom_api:
-    base_url: "https://api.custom.com"
-    authentication:
-      type: "custom"
-      headers:
-        "X-API-Key": "${CUSTOM_API_KEY}"
-        "X-Client-ID": "${CUSTOM_CLIENT_ID}"
+logging:
+  level: "info"                  # debug, info, warn, error
+  format: "json"                 # json, text
+  file: "./backworks.log"        # Optional log file
 ```
 
-## 🗄️ Database Configuration
+**Log levels:**
+- `debug` - Detailed debugging information
+- `info` - General information (default)
+- `warn` - Warning messages
+- `error` - Error messages only
+
+## 📋 Complete Example
+
+Here's a comprehensive configuration example:
 
 ```yaml
-database:
-  # PostgreSQL
-  type: "postgresql"
-  connection_string: "postgresql://user:pass@localhost:5432/dbname"
-  connection_string_env: "DATABASE_URL"  # Prefer environment variable
-  
-  # Connection pool settings
-  pool:
-    min_connections: 5
-    max_connections: 20
-    connection_timeout: 30
-    
-  # MySQL
-  type: "mysql"
-  connection_string: "mysql://user:pass@localhost:3306/dbname"
-  
-  # SQLite
-  type: "sqlite"
-  file_path: "./data/app.db"
-  
-  # MongoDB
-  type: "mongodb"
-  connection_string: "mongodb://localhost:27017/dbname"
-  
-  # Multiple databases
-  databases:
-    primary:
-      type: "postgresql"
-      connection_string_env: "PRIMARY_DB_URL"
-    analytics:
-      type: "clickhouse"
-      connection_string_env: "ANALYTICS_DB_URL"
-    cache:
-      type: "redis"
-      connection_string_env: "REDIS_URL"
-```
+name: "Todo API"
+description: "Simple todo management API"
+version: "1.0.0"
 
-## 🎨 Dashboard Configuration
+server:
+  host: "0.0.0.0"
+  port: 3000
 
-```yaml
 dashboard:
-  enabled: true                          # Enable visual dashboard
-  port: 3000                            # Dashboard port
-  
-  # Dashboard features
-  features:
-    - "flows"                           # Flow diagrams
-    - "metrics"                         # Performance metrics
-    - "ai_insights"                     # AI-powered insights
-    - "architecture"                    # Architecture overview
-    - "logs"                           # Request logs
-    
-  # Real-time updates
-  real_time:
-    enabled: true
-    update_frequency: 1000              # Milliseconds
-    
-  # Visualization settings
-  visualization:
-    layout: "hierarchical"              # hierarchical, force-directed, circular
-    show_data_flow: true
-    animate_requests: true
-    color_scheme: "dark"                # dark, light, auto
-    
-  # Access control
-  security:
-    enabled: true
-    api_key_env: "DASHBOARD_API_KEY"
-    allowed_ips: ["127.0.0.1", "10.0.0.0/8"]
-```
+  enabled: true
+  port: 3001
 
-## 🔒 Security Configuration
+mode: "runtime"
 
-```yaml
-security:
-  # CORS settings
-  cors:
-    enabled: true
-    origins: ["https://app.example.com", "http://localhost:3000"]
-    methods: ["GET", "POST", "PUT", "DELETE"]
-    headers: ["Content-Type", "Authorization"]
-    credentials: true
-    
-  # Rate limiting
-  rate_limiting:
-    enabled: true
-    requests_per_minute: 100
-    burst_size: 20
-    key_generator: "ip"                  # ip, user, api_key
-    
-  # Authentication
-  authentication:
-    type: "jwt"                          # jwt, api_key, oauth2, custom
-    secret_env: "JWT_SECRET"
-    algorithm: "HS256"
-    expiration: 3600                     # seconds
-    
-    # Custom validation
-    validation:
-      handler: "./auth/validate.js"
-      
-  # Request validation
-  validation:
-    max_body_size: "10MB"
-    require_content_type: true
-    validate_json: true
-    
-  # Security headers
-  headers:
-    "X-Content-Type-Options": "nosniff"
-    "X-Frame-Options": "DENY"
-    "X-XSS-Protection": "1; mode=block"
-    "Strict-Transport-Security": "max-age=31536000"
-```
+global_headers:
+  "X-API-Version": "1.0"
+  "Access-Control-Allow-Origin": "*"
 
-## 📊 Monitoring Configuration
+logging:
+  level: "info"
+  format: "json"
 
-```yaml
-monitoring:
-  # Metrics collection
-  metrics:
-    enabled: true
-    export_format: "prometheus"          # prometheus, statsd, json
-    export_endpoint: "/metrics"
-    
-    # Custom metrics
-    custom:
-      - name: "api_requests_total"
-        type: "counter"
-        description: "Total API requests"
-        labels: ["endpoint", "method", "status"]
-        
-  # Logging
-  logging:
-    level: "info"                        # debug, info, warn, error
-    format: "json"                       # json, text
-    output: "stdout"                     # stdout, file, syslog
-    
-    # File logging
-    file:
-      path: "./logs/backworks.log"
-      max_size: "100MB"
-      max_files: 10
-      
-  # Health checks
-  health:
-    enabled: true
-    endpoint: "/health"
-    checks:
-      - name: "database"
-        type: "database"
-        timeout: 5
-      - name: "external_api"
-        type: "http"
-        url: "https://api.external.com/health"
-        
-  # Alerting
-  alerts:
-    enabled: true
-    channels:
-      slack:
-        webhook_url_env: "SLACK_WEBHOOK_URL"
-        channel: "#alerts"
-      email:
-        smtp_host: "smtp.gmail.com"
-        smtp_port: 587
-        username_env: "SMTP_USERNAME"
-        password_env: "SMTP_PASSWORD"
-        
-    rules:
-      - name: "high_error_rate"
-        condition: "error_rate > 0.05"
-        duration: "5m"
-        channels: ["slack", "email"]
-```
-
-## 🔄 Capture Mode Configuration
-
-```yaml
-mode: "capture"
-
-# Listener configuration
-listeners:
-  http:
-    port: 8080
-    capture_all: true
-    log_requests: true
-    
-  websocket:
-    port: 8081
-    capture_messages: true
-    
-  proxy:
-    port: 8082
-    target: "https://existing-api.com"
-    capture_and_forward: true
-
-# Capture settings
-capture:
-  # What to capture
-  requests:
-    headers: true
-    body: true
-    query_parameters: true
-    method: true
-    timestamp: true
-    
-  responses:
-    headers: true
-    body: true
-    status_code: true
-    response_time: true
-    
-  # Analysis settings
-  analysis:
-    auto_generate_schema: true
-    detect_patterns: true
-    group_similar_requests: true
-    confidence_threshold: 0.8
-    
-  # Export settings
-  export:
-    format: "openapi"                    # openapi, postman, curl, backworks
-    output_file: "./captured-api.yaml"
-    include_examples: true
-```
-
-## 🌍 Multi-Runtime Configuration
-
-```yaml
-# Runtime environments
-runtimes:
-  javascript:
-    command: "node"
-    version: ">=18.0.0"
-    working_dir: "./handlers/js"
-    install_deps: "npm install"
-    
-  python:
-    command: "python3"
-    version: ">=3.8"
-    working_dir: "./handlers/python"
-    install_deps: "pip install -r requirements.txt"
-    virtual_env: true
-    
-  dotnet:
-    command: "dotnet run"
-    project_file: "./handlers/dotnet/Handler.csproj"
-    
-  rust:
-    command: "cargo run --release"
-    working_dir: "./handlers/rust"
-    
-  shell:
-    command: "bash"
-    working_dir: "./handlers/shell"
-
-# Global runtime settings
-runtime_settings:
-  timeout: 30                            # Default timeout
-  memory_limit: "512MB"                  # Default memory limit
-  environment:                           # Global environment variables
-    BACKWORKS_VERSION: "1.0.0"
-    NODE_ENV: "production"
-```
-
-## ⚙️ Advanced Configuration
-
-### Environment Variables
-```yaml
-# Use environment variables throughout configuration
-database:
-  connection_string: "${DATABASE_URL}"
-  
-apis:
-  stripe:
-    auth: "bearer:${STRIPE_SECRET_KEY}"
-    
-# Default values
-database:
-  connection_string: "${DATABASE_URL:-sqlite://./default.db}"
-```
-
-### Configuration Inheritance
-```yaml
-# base.yaml
-extends: "./base.yaml"
-
-# Override specific values
 endpoints:
-  users:
-    path: "/v2/users"  # Override path from base.yaml
+  # List todos
+  todos:
+    path: "/todos"
+    methods: ["GET", "POST"]
+    description: "Manage todos"
+    runtime:
+      language: "javascript"
+      handler: |
+        function handler(req, res) {
+          const todos = [
+            { id: 1, title: "Learn Backworks", completed: false },
+            { id: 2, title: "Build an API", completed: true }
+          ];
+          
+          if (req.method === 'GET') {
+            const status = req.query_params?.status;
+            let filteredTodos = todos;
+            
+            if (status === 'completed') {
+              filteredTodos = todos.filter(t => t.completed);
+            } else if (status === 'pending') {
+              filteredTodos = todos.filter(t => !t.completed);
+            }
+            
+            return {
+              status: 200,
+              body: {
+                todos: filteredTodos,
+                count: filteredTodos.length
+              }
+            };
+          } else if (req.method === 'POST') {
+            if (!req.body?.title) {
+              return {
+                status: 400,
+                body: { error: 'Title is required' }
+              };
+            }
+            
+            const newTodo = {
+              id: todos.length + 1,
+              title: req.body.title,
+              completed: false,
+              created_at: new Date().toISOString()
+            };
+            
+            return {
+              status: 201,
+              body: { message: 'Todo created', todo: newTodo }
+            };
+          }
+        }
+
+  # Single todo operations
+  todo_detail:
+    path: "/todos/{id}"
+    methods: ["GET", "PUT", "DELETE"]
+    description: "Single todo operations"
+    runtime:
+      language: "javascript"
+      handler: |
+        function handler(req, res) {
+          const todoId = parseInt(req.path_params.id);
+          
+          if (req.method === 'GET') {
+            return {
+              status: 200,
+              body: {
+                id: todoId,
+                title: `Todo ${todoId}`,
+                completed: Math.random() > 0.5,
+                created_at: new Date().toISOString()
+              }
+            };
+          } else if (req.method === 'PUT') {
+            return {
+              status: 200,
+              body: {
+                id: todoId,
+                title: req.body.title || `Todo ${todoId}`,
+                completed: req.body.completed || false,
+                updated_at: new Date().toISOString()
+              }
+            };
+          } else if (req.method === 'DELETE') {
+            return {
+              status: 204,
+              body: null
+            };
+          }
+        }
+
+  # Health check
+  health:
+    path: "/health"
+    methods: ["GET"]
+    description: "API health check"
+    runtime:
+      language: "javascript"
+      handler: |
+        function handler(req, res) {
+          return {
+            status: 200,
+            body: {
+              status: "healthy",
+              timestamp: new Date().toISOString(),
+              uptime: process.uptime()
+            }
+          };
+        }
 ```
 
-### Conditional Configuration
-```yaml
-# Different configs for different environments
-environments:
-  development:
-    mode: "mock"
-    ai: { enabled: false }
-    
-  staging:
-    mode: "hybrid"
-    ai: { enabled: true }
-    
-  production:
-    mode: "database"
-    ai: { enabled: true }
-    monitoring: { enabled: true }
-```
+## ⚠️ Current Limitations
 
-This configuration reference covers all aspects of Backworks configuration. For specific examples and use cases, see the [examples](../examples/) directory.
+- **JavaScript Only**: Only JavaScript handlers are supported
+- **No Async/Await**: Handlers are synchronous functions
+- **No External Libraries**: Cannot import external npm packages
+- **Limited Built-ins**: Only basic JavaScript features available
+- **No File System**: Cannot read/write files from handlers
+- **No Network Calls**: Cannot make HTTP requests from handlers
+
+## 🚀 Future Enhancements
+
+Planned configuration features:
+- Database integration
+- External API calls
+- Plugin system
+- Multiple language support
+- Async handler support
+- Environment variable substitution
+
+---
+
+For more examples, check the [examples directory](../examples/) and [quick-start guide](./quick-start.md).

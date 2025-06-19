@@ -1,25 +1,32 @@
 # 🚀 Backworks Extensibility & Full-Stack Vision
 
-## 🎯 **Current Architecture Strengths**
+> **⚠️ FUTURE VISION DOCUMENT**  
+> This document outlines potential future capabilities and extensions.
+> **Current implementation only supports Runtime mode with JavaScript handlers.**
+> See [ARCHITECTURE.md](ARCHITECTURE.md) for actual current features.
 
-### ✅ **Already Extensible**
-- **Plugin System** (foundation exists in `src/plugin.rs`)
-- **Multiple Execution Modes** (Runtime, Database, Proxy, Plugin)
-- **Modular Dashboard** (Qwik-based, component-driven)
-- **Configuration Schema** (YAML-first design)
+---
 
-### 🏗️ **Extension Points**
-```rust
-// Current extension architecture
-pub enum ExecutionMode {
-    Runtime,    // ← JavaScript handlers
-    Database,   // ← SQL/NoSQL operations  
-    Proxy,      // ← Forward to existing APIs
-    Plugin,     // ← Custom Rust/WASM plugins
-}
-```
+## 🎯 **Current Reality vs. Vision**
+
+### ✅ **Currently Implemented**
+- **Runtime Mode** - JavaScript handlers for dynamic responses
+- **Basic Dashboard** - Request monitoring and configuration viewing
+- **YAML Configuration** - Simple endpoint definition
+- **Examples** - Working hello-world, blog-api, task-manager
+
+### 🔮 **Future Vision (Not Yet Implemented)**
+- Plugin System (foundation exists in `src/plugin.rs` but not functional)
+- Database Mode (SQL/NoSQL operations)
+- Proxy Mode (Forward to existing APIs)
+- Advanced Dashboard workflows
+- Visual designers and form builders
+
+---
 
 ## 🌟 **Full-Stack Platform Vision**
+
+*The following sections describe potential future extensions to Backworks.*
 
 ### **Phase 1: Enhanced Dashboard Workflows** 
 ```yaml

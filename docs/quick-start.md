@@ -4,360 +4,318 @@ Get your first Backworks API running in under 5 minutes!
 
 ## 🚀 Installation
 
-### Option 1: Using Cargo (Recommended)
-```bash
-cargo install backworks
-```
-
-### Option 2: From Source
+### Build from Source
 ```bash
 git clone https://github.com/devstroop/backworks
 cd backworks
 cargo build --release
-./target/release/backworks --version
 ```
 
-### Option 3: Docker
-```bash
-docker pull backworks/backworks:latest
-```
+The binary will be available at `./target/release/backworks`
 
-## 🎯 Your First API in 30 Seconds
+## 🎯 Your First API in 2 Minutes
 
 ### 1. Create Configuration
-Create a `project.yaml` file:
+Create a `my-api.yaml` file:
 
 ```yaml
-name: "my_first_api"
+name: "My First API"
 description: "A simple user management API"
 
+server:
+  host: "0.0.0.0"
+  port: 3000
+
+dashboard:
+  enabled: true
+  port: 3001
+
+mode: "runtime"
+
 endpoints:
+  hello:
+    path: "/hello"
+    methods: ["GET"]
+    description: "Say hello to the world"
+    runtime:
+      language: "javascript"
+      handler: |
+        function handler(req, res) {
+          return {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+            body: {
+              message: "Hello, World!",
+              timestamp: new Date().toISOString(),
+              method: req.method,
+              path: req.path
+            }
+          };
+        }
+
   users:
     path: "/users"
     methods: ["GET", "POST"]
-    mock:
-      data:
-        - id: 1
-          name: "John Doe"
-          email: "john@example.com"
-        - id: 2
-          name: "Jane Smith"
-          email: "jane@example.com"
+    description: "Manage users"
+    runtime:
+      language: "javascript"
+      handler: |
+        function handler(req, res) {
+          const users = [
+            { id: 1, name: "John Doe", email: "john@example.com" },
+            { id: 2, name: "Jane Smith", email: "jane@example.com" }
+          ];
           
+          if (req.method === "GET") {
+            return {
+              status: 200,
+              body: { users: users, count: users.length }
+            };
+          } else if (req.method === "POST") {
+            const newUser = {
+              id: users.length + 1,
+              name: req.body.name || "New User",
+              email: req.body.email || "user@example.com"
+            };
+            return {
+              status: 201,
+              body: { message: "User created", user: newUser }
+            };
+          }
+        }
+
   user_detail:
     path: "/users/{id}"
-    methods: ["GET", "PUT", "DELETE"]
-    mock:
-      data:
-        id: "${path.id}"
-        name: "User ${path.id}"
-        email: "user${path.id}@example.com"
+    methods: ["GET"]
+    description: "Get user by ID"
+    runtime:
+      language: "javascript"
+      handler: |
+        function handler(req, res) {
+          const userId = req.path_params?.id || "1";
+          return {
+            status: 200,
+            body: {
+              id: parseInt(userId),
+              name: `User ${userId}`,
+              email: `user${userId}@example.com`,
+              retrieved_at: new Date().toISOString()
+            }
+          };
+        }
 ```
 
 ### 2. Start Your API
 ```bash
-backworks start
+./target/release/backworks start --config my-api.yaml
+```
+
+You should see output like:
+```
+🚀 Starting Backworks...
+✅ Configuration loaded: My First API
+✅ Backworks engine initialized
+🌐 API server running on http://0.0.0.0:3000
+📊 Dashboard available at http://0.0.0.0:3001
 ```
 
 ### 3. Test Your API
 ```bash
+# Test the hello endpoint
+curl http://localhost:3000/hello
+
 # Get all users
-curl http://localhost:8080/users
+curl http://localhost:3000/users
 
 # Get specific user
-curl http://localhost:8080/users/1
+curl http://localhost:3000/users/123
 
-# Create new user
-curl -X POST http://localhost:8080/users \
+# Create a new user
+curl -X POST http://localhost:3000/users \
   -H "Content-Type: application/json" \
-  -d '{"name": "New User", "email": "new@example.com"}'
+  -d '{"name": "Alice Cooper", "email": "alice@example.com"}'
 ```
 
 ### 4. View Dashboard
-Open your browser to `http://localhost:3000` to see the visual dashboard!
+Open your browser to `http://localhost:3001` to see:
+- Real-time API metrics
+- Request logs
+- Endpoint status
+- System performance
 
-## 🔄 Evolution Modes
+## � Understanding the Configuration
 
-### Mock Mode (Default)
-Perfect for prototyping and frontend development:
-
+### Basic Structure
 ```yaml
-name: "prototype_api"
-mode: "mock"
+name: "API Name"                    # Required: API identifier
+description: "What this API does"   # Optional: API description
 
-endpoints:
-  products:
-    path: "/products"
-    mock:
-      data: "./data/products.json"
-```
+server:                             # Server configuration
+  host: "0.0.0.0"                  # Bind address
+  port: 3000                       # API port
 
-### Capture Mode
-Learn from existing API usage:
+dashboard:                          # Dashboard configuration
+  enabled: true                    # Enable dashboard
+  port: 3001                       # Dashboard port
 
-```yaml
-name: "learning_api"
-mode: "capture"
+mode: "runtime"                     # Execution mode (currently only "runtime")
 
-listeners:
-  http:
-    port: 8080
-    capture_all: true
-    
-capture_settings:
-  analyze_patterns: true
-  generate_schemas: true
-  export_format: "openapi"
-```
-
-### Runtime Mode
-Add custom business logic:
-
-```yaml
-name: "business_api"
-mode: "runtime"
-
-endpoints:
-  complex_calculation:
-    path: "/calculate"
-    runtime:
-      language: "javascript"
-      handler: |
-        export default async (request, context) => {
-          const { numbers } = request.body;
-          const sum = numbers.reduce((a, b) => a + b, 0);
-          return { result: sum, count: numbers.length };
+endpoints:                          # API endpoints
+  endpoint_name:                    # Endpoint identifier
+    path: "/api/path"              # URL path
+    methods: ["GET", "POST"]        # HTTP methods
+    description: "What this does"   # Optional description
+    runtime:                        # JavaScript handler
+      language: "javascript"       # Only JavaScript supported currently
+      handler: |                   # JavaScript function
+        function handler(req, res) {
+          // Your logic here
+          return {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+            body: { message: "Success" }
+          };
         }
 ```
 
-## 🤖 Adding AI Intelligence
+### Handler Function Details
 
-Enable AI features to enhance your API:
+Your JavaScript handler receives a `req` object with:
+- `req.method` - HTTP method (GET, POST, etc.)
+- `req.path` - Request path
+- `req.path_params` - Path parameters (e.g., {id} in /users/{id})
+- `req.body` - Request body (parsed JSON for POST/PUT)
+- `req.headers` - Request headers
+- `req.query_params` - Query string parameters
 
-```yaml
-name: "intelligent_api"
-ai:
-  enabled: true
-  features:
-    - "pattern_recognition"
-    - "schema_prediction"
-    - "performance_insights"
-    - "anomaly_detection"
+Return an object with:
+- `status` - HTTP status code (required)
+- `headers` - Response headers (optional)
+- `body` - Response body (optional)
 
-endpoints:
-  smart_endpoint:
-    path: "/smart"
-    ai_enhanced: true
-    mock:
-      ai_generated: true
-      based_on_patterns: true
+## 📋 Commands Reference
+
+### Start API Server
+```bash
+# Start with default config (project.yaml)
+./target/release/backworks start
+
+# Start with custom config
+./target/release/backworks start --config my-api.yaml
+
+# Override ports
+./target/release/backworks start --port 8080 --dashboard-port 8081
+
+# Enable verbose logging
+./target/release/backworks start --verbose
 ```
 
-## 🔌 External API Integration
-
-Connect to third-party services:
-
-```yaml
-name: "integration_api"
-
-# Define external APIs
-apis:
-  stripe:
-    base_url: "https://api.stripe.com/v1"
-    authentication:
-      type: "bearer"
-      token_env: "STRIPE_SECRET_KEY"
-      
-  sendgrid:
-    base_url: "https://api.sendgrid.com/v3"
-    authentication:
-      type: "bearer"
-      token_env: "SENDGRID_API_KEY"
-
-endpoints:
-  process_payment:
-    path: "/payments"
-    runtime:
-      language: "javascript"
-      handler: |
-        export default async (request, context) => {
-          const { amount, email } = request.body;
-          
-          // Create Stripe payment
-          const payment = await context.apis.stripe.post('/charges', {
-            amount: amount * 100,
-            currency: 'usd',
-            source: request.body.token
-          });
-          
-          // Send confirmation email
-          await context.apis.sendgrid.post('/mail/send', {
-            personalizations: [{ to: [{ email }] }],
-            from: { email: 'noreply@company.com' },
-            subject: 'Payment Confirmation',
-            content: [{ 
-              type: 'text/html', 
-              value: `Payment of $${amount} processed successfully!` 
-            }]
-          });
-          
-          return { success: true, payment_id: payment.id };
-        }
+### Validate Configuration
+```bash
+# Validate configuration file
+./target/release/backworks validate --config my-api.yaml
 ```
 
-## 📊 Database Integration
+### Initialize New Project
+```bash
+# Create new project with basic template
+./target/release/backworks init my-new-api
 
-Connect to databases:
-
-```yaml
-name: "database_api"
-
-# Database configuration
-database:
-  type: "postgresql"
-  connection_string_env: "DATABASE_URL"
-
-endpoints:
-  users_db:
-    path: "/users"
-    methods: ["GET", "POST", "PUT", "DELETE"]
-    database:
-      table: "users"
-      # Automatic CRUD operations
-      auto_crud: true
-      
-  custom_query:
-    path: "/analytics"
-    database:
-      query: |
-        SELECT 
-          DATE(created_at) as date,
-          COUNT(*) as user_count
-        FROM users 
-        WHERE created_at >= NOW() - INTERVAL '30 days'
-        GROUP BY DATE(created_at)
-        ORDER BY date
+# Create with specific template
+./target/release/backworks init my-api --template basic
 ```
 
-## 🎨 Visual Dashboard Features
+## 🎨 Dashboard Features
 
-The dashboard automatically provides:
+The built-in dashboard provides:
 
-### Real-Time Flow Diagrams
-- Request flow visualization
-- Performance bottleneck identification
-- Error propagation tracking
+### Real-Time Monitoring
+- **Request Count** - Total requests per endpoint
+- **Response Times** - Average and percentile response times
+- **Status Codes** - Distribution of HTTP status codes
+- **Error Rates** - Success/failure ratios
 
-### AI Insights
-- Usage pattern analysis
-- Performance optimization suggestions
-- Anomaly detection alerts
+### Request Logs
+- **Live Request Feed** - See requests as they happen
+- **Request Details** - Method, path, status, response time
+- **Error Tracking** - Failed requests with error details
 
-### Architecture Overview
-- System topology visualization
-- Dependency mapping
-- Health status monitoring
+### System Health
+- **Server Status** - Uptime and health
+- **Memory Usage** - Resource consumption
+- **Configuration Info** - Current settings
 
-## 📈 Progressive Enhancement
-
-### Phase 1: Rapid Prototyping
-```yaml
-# Start with mocks
-name: "ecommerce_prototype"
-endpoints:
-  products: { path: "/products", mock: { data: "./products.json" } }
-  orders: { path: "/orders", mock: { data: [] } }
-```
-
-### Phase 2: Add Intelligence
-```yaml
-# Enable AI
-ai: { enabled: true }
-```
-
-### Phase 3: Custom Logic
-```yaml
-# Add handlers
-endpoints:
-  orders:
-    path: "/orders"
-    runtime:
-      language: "python"
-      handler: "./handlers/orders.py"
-```
-
-### Phase 4: Production Ready
-```yaml
-# Connect to real systems
-database: { connection_string_env: "DATABASE_URL" }
-apis:
-  stripe: { auth: "bearer:${STRIPE_KEY}" }
-  inventory: { base_url: "https://inventory.company.com" }
-```
-
-## 🔧 Common Patterns
-
-### REST API with CRUD
-```yaml
-endpoints:
-  users:
-    path: "/users"
-    methods: ["GET", "POST"]
-    database: { table: "users", auto_crud: true }
-    
-  user_detail:
-    path: "/users/{id}"
-    methods: ["GET", "PUT", "DELETE"]
-    database: { table: "users", auto_crud: true }
-```
-
-### Microservices Gateway
-```yaml
-endpoints:
-  user_service:
-    path: "/users/*"
-    proxy:
-      target: "http://user-service:8081"
-      strip_prefix: "/users"
-      
-  order_service:
-    path: "/orders/*"
-    proxy:
-      target: "http://order-service:8082"
-```
-
-### API Aggregation
-```yaml
-endpoints:
-  dashboard_data:
-    path: "/dashboard"
-    runtime:
-      language: "javascript"
-      handler: |
-        export default async (request, context) => {
-          const [users, orders, analytics] = await Promise.all([
-            context.apis.userService.get('/users/count'),
-            context.apis.orderService.get('/orders/recent'),
-            context.apis.analytics.get('/metrics/daily')
-          ]);
-          
-          return { users, orders, analytics };
-        }
-```
+Access the dashboard at `http://localhost:3001` (or your configured dashboard port).
 
 ## 🚀 Next Steps
 
-1. **Explore Examples** - Check the [examples](../examples/) directory
+1. **Explore Examples** - Check the [examples](../examples/) directory for more patterns
 2. **Read Configuration Reference** - Learn all [configuration options](./configuration.md)
-3. **Try AI Features** - Explore [AI capabilities](./ai-features.md)
-4. **Set Up Monitoring** - Configure [dashboard and monitoring](./monitoring.md)
-5. **Advanced Usage** - Dive into [advanced patterns](./advanced.md)
+3. **Understand Architecture** - Review the [architecture documentation](../ARCHITECTURE.md)
+4. **Check Current Direction** - See [development direction](../DIRECTION.md)
+5. **Try Advanced Patterns** - Experiment with complex JavaScript handlers
+
+## 💡 Pro Tips
+
+### Development Workflow
+1. **Start Simple** - Begin with basic endpoints
+2. **Test Frequently** - Use curl or your favorite HTTP client
+3. **Monitor Dashboard** - Watch real-time metrics
+4. **Iterate Fast** - Modify configuration and restart
+
+### Common Patterns
+```javascript
+// Handle different HTTP methods
+function handler(req, res) {
+  switch(req.method) {
+    case 'GET':
+      return { status: 200, body: { message: 'Getting data' } };
+    case 'POST':
+      return { status: 201, body: { message: 'Created', data: req.body } };
+    default:
+      return { status: 405, body: { error: 'Method not allowed' } };
+  }
+}
+
+// Use path parameters
+function handler(req, res) {
+  const id = req.path_params?.id;
+  return {
+    status: 200,
+    body: { id: id, message: `Retrieved item ${id}` }
+  };
+}
+
+// Handle errors gracefully
+function handler(req, res) {
+  try {
+    // Your logic here
+    return { status: 200, body: { success: true } };
+  } catch (error) {
+    return { 
+      status: 500, 
+      body: { error: 'Internal server error', message: error.message } 
+    };
+  }
+}
+```
 
 ## 🤝 Getting Help
 
 - 📚 **Documentation**: Browse the full [documentation](./README.md)
-- 💬 **Community**: Join our [Discord server](https://discord.gg/backworks)
-- 🐛 **Issues**: Report bugs on [GitHub](https://github.com/devstroop/backworks/issues)
-- 💡 **Features**: Request features on [GitHub Discussions](https://github.com/devstroop/backworks/discussions)
+-  **Issues**: Report bugs on [GitHub Issues](https://github.com/devstroop/backworks/issues)
+- 💡 **Features**: Request features via GitHub Issues
+- 📖 **Examples**: Check out the [examples directory](../examples/)
+
+## ⚠️ Current Limitations
+
+- **JavaScript Only**: Currently only JavaScript handlers are supported
+- **Single Mode**: Only "runtime" mode is implemented
+- **No Database**: Direct database integration not yet available
+- **No Plugins**: Plugin system is planned but not implemented
+
+See [DIRECTION.md](../DIRECTION.md) for the current development roadmap.
+
+---
 
 Start building amazing APIs with Backworks today! 🚀
