@@ -3,7 +3,7 @@ use std::path::PathBuf;
 
 use backworks::{
     BackworksEngine, BackworksError, Result,
-    config, capture
+    config, capture, analyzer
 };
 
 #[derive(Parser)]
@@ -41,6 +41,21 @@ enum Commands {
         /// Configuration file path
         #[arg(short, long, default_value = "project.yaml")]
         config: PathBuf,
+    },
+    
+    /// Analyze blueprint configuration with detailed feedback
+    Analyze {
+        /// Configuration file path
+        #[arg(short, long, default_value = "project.yaml")]
+        config: PathBuf,
+        
+        /// Output format (text, json, yaml)
+        #[arg(short, long, default_value = "text")]
+        format: String,
+        
+        /// Output file (optional, defaults to stdout)
+        #[arg(short, long)]
+        output: Option<PathBuf>,
     },
     
     /// Initialize a new Backworks project
@@ -93,6 +108,9 @@ async fn main() -> Result<()> {
         }
         Commands::Validate { config } => {
             validate_config(config).await
+        }
+        Commands::Analyze { config, format, output } => {
+            analyze_blueprint(config, format, output).await
         }
         Commands::Init { name, template } => {
             init_project(name, template).await
@@ -233,6 +251,81 @@ async fn generate_config(input: PathBuf, output: PathBuf) -> Result<()> {
     capturer.generate_from_file(input, output).await?;
     
     println!("✅ Configuration generated successfully");
+    Ok(())
+}
+
+async fn analyze_blueprint(mut config_path: PathBuf, format: String, output: Option<PathBuf>) -> Result<()> {
+    // Auto-detect configuration file if default doesn't exist
+    if !config_path.exists() && config_path.file_name().unwrap_or_default() == "project.yaml" {
+        let blueprint_path = PathBuf::from("blueprint.yaml");
+        if blueprint_path.exists() {
+            config_path = blueprint_path;
+        }
+    }
+
+    if !config_path.exists() {
+        eprintln!("❌ Configuration file not found: {}", config_path.display());
+        std::process::exit(1);
+    }
+
+    println!("🔍 Analyzing blueprint: {}", config_path.display());
+
+    let analyzer = backworks::analyzer::BlueprintAnalyzer::new();
+    let report = match analyzer.analyze_file(config_path.to_str().unwrap()).await {
+        Ok(report) => report,
+        Err(e) => {
+            eprintln!("❌ Analysis failed: {}", e);
+            std::process::exit(1);
+        }
+    };
+
+    // Output the report
+    match format.as_str() {
+        "json" => {
+            let json_output = serde_json::to_string_pretty(&report)
+                .map_err(|e| BackworksError::Json(e))?;
+            
+            if let Some(output_path) = output {
+                std::fs::write(&output_path, json_output)
+                    .map_err(|e| BackworksError::Io(e))?;
+                println!("📄 Analysis report written to: {}", output_path.display());
+            } else {
+                println!("{}", json_output);
+            }
+        }
+        "yaml" => {
+            let yaml_output = serde_yaml::to_string(&report)
+                .map_err(|e| BackworksError::config(&format!("YAML serialization error: {}", e)))?;
+            
+            if let Some(output_path) = output {
+                std::fs::write(&output_path, yaml_output)
+                    .map_err(|e| BackworksError::Io(e))?;
+                println!("📄 Analysis report written to: {}", output_path.display());
+            } else {
+                println!("{}", yaml_output);
+            }
+        }
+        "text" | _ => {
+            if let Some(output_path) = output {
+                // For text output to file, we'll capture stdout
+                // This is a simplified approach - in production, you'd want better handling
+                eprintln!("Text output to file not yet supported, outputting to console:");
+            }
+            analyzer.print_report(&report);
+        }
+    }
+
+    // Exit with appropriate code
+    let exit_code = match report.status {
+        backworks::analyzer::AnalysisStatus::Valid => 0,
+        backworks::analyzer::AnalysisStatus::Warning => 1,
+        backworks::analyzer::AnalysisStatus::Error => 2,
+    };
+
+    if exit_code != 0 {
+        std::process::exit(exit_code);
+    }
+
     Ok(())
 }
 

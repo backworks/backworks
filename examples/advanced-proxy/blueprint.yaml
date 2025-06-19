@@ -14,7 +14,7 @@ mode: "proxy"
 
 endpoints:
   test_json:
-    path: "/test/json"
+    path: "/api/test"
     methods: ["GET"]
     description: "Test JSON transformation with HTTPBin"
     mode: "proxy"
@@ -27,8 +27,8 @@ endpoints:
         algorithm: "RoundRobin"
       transform_request:
         path_rewrite:
-          strip_prefix: "/test"
-          add_prefix: "/json"
+          strip_prefix: "/api/test"
+          add_prefix: "/get"
       transform_response:
         add_headers:
           X-Transformed: "true"

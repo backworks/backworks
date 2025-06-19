@@ -1,0 +1,91 @@
+name: "Blueprint with Issues"
+description: "A blueprint designed to showcase analyzer capabilities"
+version: "1.0.0"
+
+server:
+  host: "0.0.0.0"
+  port: 8080
+
+mode: "proxy"
+
+endpoints:
+  # Issue: Empty targets
+  broken_endpoint:
+    path: "/broken"
+    methods: ["GET"]
+    mode: "proxy"
+    proxy:
+      targets: []
+      
+  # Issue: HTTP target (insecure)
+  insecure_endpoint:
+    path: "/insecure"
+    methods: ["GET"] 
+    mode: "proxy"
+    proxy:
+      targets:
+        - name: "insecure"
+          url: "http://example.com"
+          weight: 1.0
+          
+  # Issue: Weight sum doesn't equal 1.0
+  weight_issue:
+    path: "/weights"
+    methods: ["GET"]
+    mode: "proxy"
+    proxy:
+      targets:
+        - name: "target1"
+          url: "https://api1.example.com"
+          weight: 0.3
+        - name: "target2"
+          url: "https://api2.example.com"
+          weight: 0.4
+          
+  # Issue: Path conflict potential
+  users_list:
+    path: "/users"
+    methods: ["GET"]
+    mode: "proxy"
+    proxy:
+      targets:
+        - name: "users_api"
+          url: "https://users.example.com"
+          weight: 1.0
+          
+  # Issue: Ambiguous path
+  users_detail:
+    path: "/users/:id"
+    methods: ["GET"]
+    mode: "proxy"
+    proxy:
+      targets:
+        - name: "users_api"
+          url: "https://users.example.com"
+          weight: 1.0
+          
+  # Issue: Path transformation without replacement
+  strip_only:
+    path: "/api/data"
+    methods: ["GET"]
+    mode: "proxy"
+    proxy:
+      targets:
+        - name: "data_api"
+          url: "https://data.example.com"
+          weight: 1.0
+      transform_request:
+        path_rewrite:
+          strip_prefix: "/api/data"
+          
+  # Issue: Empty response transformation
+  empty_transform:
+    path: "/empty"
+    methods: ["GET"]
+    mode: "proxy"
+    proxy:
+      targets:
+        - name: "empty_api"
+          url: "https://empty.example.com"
+          weight: 1.0
+      transform_response: {}

@@ -19,6 +19,7 @@ pub mod runtime;
 pub mod database;
 pub mod capture;
 pub mod proxy;
+pub mod analyzer;
 
 // Re-export commonly used types
 pub use config::BackworksConfig;

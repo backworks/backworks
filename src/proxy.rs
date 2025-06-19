@@ -666,9 +666,8 @@ impl ProxyHandler {
         let method = request_data.method.parse::<http::Method>()
             .map_err(|e| BackworksError::Proxy(format!("Invalid HTTP method: {}", e)))?;
         
-        // Build URI from path_params and query_params
-        let default_path = "/".to_string();
-        let path = request_data.path_params.get("path").unwrap_or(&default_path);
+        // Use the original path from RequestData
+        let path = &request_data.path;
         let query_string = if !request_data.query_params.is_empty() {
             format!("?{}", serde_urlencoded::to_string(&request_data.query_params).unwrap_or_default())
         } else {
@@ -716,9 +715,8 @@ impl ProxyHandler {
         let method = request_data.method.parse::<http::Method>()
             .map_err(|e| BackworksError::Proxy(format!("Invalid HTTP method: {}", e)))?;
         
-        // Build URI from path_params and query_params
-        let default_path = "/".to_string();
-        let path = request_data.path_params.get("path").unwrap_or(&default_path);
+        // Use the original path from RequestData
+        let path = &request_data.path;
         let query_string = if !request_data.query_params.is_empty() {
             format!("?{}", serde_urlencoded::to_string(&request_data.query_params).unwrap_or_default())
         } else {

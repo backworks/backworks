@@ -219,13 +219,13 @@ async fn request_middleware(
 fn create_endpoint_handler(
     method: String,
     endpoint_name: String,
-) -> impl Fn(State<AppState>, Path<HashMap<String, String>>, Query<HashMap<String, String>>, HeaderMap, Option<axum::extract::Json<Value>>) -> std::pin::Pin<Box<dyn std::future::Future<Output = axum::response::Result<(StatusCode, Json<Value>)>> + Send>> + Clone + Send + Sync + 'static {
-    move |state, path, query, headers, body| {
+) -> impl Fn(State<AppState>, axum::extract::OriginalUri, Path<HashMap<String, String>>, Query<HashMap<String, String>>, HeaderMap, Option<axum::extract::Json<Value>>) -> std::pin::Pin<Box<dyn std::future::Future<Output = axum::response::Result<(StatusCode, Json<Value>)>> + Send>> + Clone + Send + Sync + 'static {
+    move |state, original_uri, path, query, headers, body| {
         let method = method.clone();
         let endpoint_name = endpoint_name.clone();
         
         Box::pin(async move {
-            handle_endpoint_request(state, method, endpoint_name, path, query, headers, body).await
+            handle_endpoint_request(state, original_uri, method, endpoint_name, path, query, headers, body).await
         })
     }
 }
@@ -233,6 +233,7 @@ fn create_endpoint_handler(
 // Main endpoint request handler
 async fn handle_endpoint_request(
     State(state): State<AppState>,
+    axum::extract::OriginalUri(original_uri): axum::extract::OriginalUri,
     method: String,
     endpoint_name: String,
     Path(path_params): Path<HashMap<String, String>>,
@@ -241,6 +242,10 @@ async fn handle_endpoint_request(
     body: Option<axum::extract::Json<Value>>,
 ) -> axum::response::Result<(StatusCode, Json<Value>)> {
     debug!("Handling {} request to endpoint: {}", method, endpoint_name);
+    
+    // Extract the original path from the original URI
+    let original_path = original_uri.path().to_string();
+    debug!("Original request path: {}", original_path);
     
     // Record request start time for dashboard metrics
     let start_time = std::time::Instant::now();
@@ -260,6 +265,7 @@ async fn handle_endpoint_request(
     
     let request_data = crate::server::RequestData {
         method: method.clone(),
+        path: original_path.clone(),
         path_params,
         query_params,
         headers: headers.clone(),
@@ -428,6 +434,7 @@ async fn metrics_handler(State(state): State<AppState>) -> String {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RequestData {
     pub method: String,
+    pub path: String, // Add original path
     pub path_params: HashMap<String, String>,
     pub query_params: HashMap<String, String>,
     #[serde(skip)] // HeaderMap doesn't implement Serialize
