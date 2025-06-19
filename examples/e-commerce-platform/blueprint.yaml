@@ -1,0 +1,306 @@
+# E-commerce Platform Blueprint
+name: "E-commerce Platform"
+version: "1.0.0" 
+description: "Plugin-enhanced e-commerce platform demonstrating blueprint-agnostic architecture"
+
+# Current implementation (Runtime mode)
+server:
+  host: "0.0.0.0"
+  port: 3000
+
+dashboard:
+  enabled: true
+  port: 3001
+
+mode: "runtime"
+
+# Core Application Endpoints
+endpoints:
+  # Product Management
+  products:
+    path: "/api/products"
+    methods: ["GET", "POST", "PUT", "DELETE"]
+    description: "Product catalog management"
+    runtime:
+      language: "javascript"
+      handler: |
+        function handler(req, res) {
+          const products = [
+            {
+              id: 1,
+              name: "Wireless Headphones",
+              price: 99.99,
+              stock: 50,
+              category: "electronics",
+              status: "active"
+            },
+            {
+              id: 2,
+              name: "Coffee Mug",
+              price: 12.99,
+              stock: 100,
+              category: "home",
+              status: "active"
+            }
+          ];
+          
+          switch(req.method) {
+            case 'GET':
+              return res.json({ products });
+            case 'POST':
+              const newProduct = { id: Date.now(), ...req.body };
+              products.push(newProduct);
+              return res.json({ product: newProduct });
+            default:
+              return res.status(405).json({ error: 'Method not allowed' });
+          }
+        }
+
+  # Order Management
+  orders:
+    path: "/api/orders"
+    methods: ["GET", "POST", "PUT", "DELETE"]
+    description: "Order processing and management"
+    runtime:
+      language: "javascript"
+      handler: |
+        function handler(req, res) {
+          const orders = [
+            {
+              id: 1,
+              customer_id: 101,
+              total: 112.98,
+              status: "processing",
+              items: [
+                { product_id: 1, quantity: 1, price: 99.99 },
+                { product_id: 2, quantity: 1, price: 12.99 }
+              ],
+              created_at: "2025-06-20T10:00:00Z"
+            }
+          ];
+          
+          switch(req.method) {
+            case 'GET':
+              return res.json({ orders });
+            case 'POST':
+              const newOrder = {
+                id: Date.now(),
+                ...req.body,
+                status: 'pending',
+                created_at: new Date().toISOString()
+              };
+              orders.push(newOrder);
+              return res.json({ order: newOrder });
+            default:
+              return res.status(405).json({ error: 'Method not allowed' });
+          }
+        }
+
+  # Customer Management
+  customers:
+    path: "/api/customers"
+    methods: ["GET", "POST", "PUT", "DELETE"]
+    description: "Customer account management"
+    runtime:
+      language: "javascript"
+      handler: |
+        function handler(req, res) {
+          const customers = [
+            {
+              id: 101,
+              email: "john@example.com",
+              name: "John Doe",
+              tier: "premium",
+              total_orders: 5,
+              created_at: "2025-01-15T09:00:00Z"
+            }
+          ];
+          
+          switch(req.method) {
+            case 'GET':
+              return res.json({ customers });
+            case 'POST':
+              const newCustomer = {
+                id: Date.now(),
+                ...req.body,
+                tier: 'standard',
+                total_orders: 0,
+                created_at: new Date().toISOString()
+              };
+              customers.push(newCustomer);
+              return res.json({ customer: newCustomer });
+            default:
+              return res.status(405).json({ error: 'Method not allowed' });
+          }
+        }
+
+  # Inventory Management
+  inventory:
+    path: "/api/inventory"
+    methods: ["GET", "PUT"]
+    description: "Inventory tracking and updates"
+    runtime:
+      language: "javascript"
+      handler: |
+        function handler(req, res) {
+          const inventory = [
+            { product_id: 1, stock: 50, reserved: 5, available: 45, reorder_point: 10 },
+            { product_id: 2, stock: 100, reserved: 0, available: 100, reorder_point: 20 }
+          ];
+          
+          switch(req.method) {
+            case 'GET':
+              return res.json({ inventory });
+            case 'PUT':
+              // Update inventory levels
+              const updates = req.body;
+              return res.json({ message: 'Inventory updated', updates });
+            default:
+              return res.status(405).json({ error: 'Method not allowed' });
+          }
+        }
+
+# Plugin System Configuration
+plugins:
+  # Core Authentication Plugin
+  auth:
+    enabled: true
+    type: "jwt"
+    config:
+      secret: "${JWT_SECRET:-development-secret}"
+      expiry: "24h"
+      refresh_enabled: true
+    hooks: ["before_request"]
+    endpoints: ["/api/orders", "/api/customers", "/api/inventory"]
+
+  # Rate Limiting Plugin
+  rate_limiter:
+    enabled: true
+    type: "memory"
+    config:
+      max_requests: 100
+      window_seconds: 3600
+      burst_limit: 10
+    hooks: ["before_request"]
+    endpoints: ["*"]
+
+  # Caching Plugin
+  cache:
+    enabled: true
+    type: "memory"
+    config:
+      ttl_seconds: 300
+      max_size_mb: 50
+      cache_headers: true
+    hooks: ["after_response"]
+    endpoints: ["/api/products", "/api/inventory"]
+
+  # Analytics Plugin
+  analytics:
+    enabled: true
+    type: "metrics"
+    config:
+      track_requests: true
+      track_performance: true
+      track_errors: true
+    hooks: ["after_response"]
+    endpoints: ["*"]
+
+  # Custom Business Plugins
+  inventory_management:
+    enabled: true
+    type: "custom"
+    path: "./plugins/inventory.js"
+    config:
+      auto_reorder: true
+      low_stock_threshold: 10
+      notification_email: "admin@example.com"
+    hooks: ["after_response"]
+    endpoints: ["/api/orders", "/api/inventory"]
+
+  payment_processing:
+    enabled: true
+    type: "custom"
+    path: "./plugins/payment.js"
+    config:
+      provider: "stripe"
+      api_key: "${STRIPE_API_KEY}"
+      webhook_secret: "${STRIPE_WEBHOOK_SECRET}"
+    hooks: ["before_request", "after_response"]
+    endpoints: ["/api/orders"]
+
+  shipping_calculator:
+    enabled: true
+    type: "custom"
+    path: "./plugins/shipping.js"
+    config:
+      default_provider: "fedex"
+      api_key: "${FEDEX_API_KEY}"
+      calculate_on_checkout: true
+    hooks: ["before_request"]
+    endpoints: ["/api/orders"]
+
+# Database Configuration (Future enhancement)
+database:
+  type: "sqlite"
+  connection: "./ecommerce.db"
+  tables:
+    products:
+      id: "serial primary key"
+      name: "varchar(255) not null"
+      price: "decimal(10,2) not null"
+      stock: "integer default 0"
+      category: "varchar(100)"
+      status: "varchar(20) default 'active'"
+      created_at: "timestamp default now()"
+    
+    orders:
+      id: "serial primary key"
+      customer_id: "integer not null"
+      total: "decimal(10,2) not null"
+      status: "varchar(20) default 'pending'"
+      created_at: "timestamp default now()"
+    
+    customers:
+      id: "serial primary key"
+      email: "varchar(255) unique not null"
+      name: "varchar(255) not null"
+      tier: "varchar(20) default 'standard'"
+      total_orders: "integer default 0"
+      created_at: "timestamp default now()"
+
+# Environment-specific configurations
+environments:
+  development:
+    plugins:
+      auth:
+        config:
+          secret: "dev-secret-key"
+      rate_limiter:
+        config:
+          max_requests: 1000
+    database:
+      connection: "./ecommerce-dev.db"
+
+  production:
+    plugins:
+      auth:
+        config:
+          secret: "${JWT_SECRET}"
+      rate_limiter:
+        config:
+          max_requests: 100
+      cache:
+        config:
+          ttl_seconds: 600
+    database:
+      connection: "${DATABASE_URL}"
+
+  testing:
+    plugins:
+      auth:
+        enabled: false
+      rate_limiter:
+        enabled: false
+    database:
+      connection: ":memory:"

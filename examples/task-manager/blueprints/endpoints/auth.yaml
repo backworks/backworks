@@ -1,0 +1,135 @@
+endpoints:
+  register:
+    path: "/api/auth/register"
+    methods: ["POST"]
+    description: "Register a new user"
+    middleware: ["validate"]
+    runtime:
+      language: "javascript"
+      handler: |
+        function handler(req, res) {
+          const { email, password, name } = req.body;
+          
+          // Basic validation
+          if (!email || !password || !name) {
+            return {
+              status: 400,
+              body: { error: "Email, password, and name are required" }
+            };
+          }
+          
+          if (password.length < 8) {
+            return {
+              status: 400,
+              body: { error: "Password must be at least 8 characters long" }
+            };
+          }
+          
+          // In real implementation, this would:
+          // 1. Check if user already exists
+          // 2. Hash the password
+          // 3. Save to database
+          // 4. Generate JWT token
+          
+          const user = {
+            id: Date.now(),
+            email: email.toLowerCase(),
+            name: name.trim(),
+            created_at: new Date().toISOString()
+          };
+          
+          return {
+            status: 201,
+            headers: { "Content-Type": "application/json" },
+            body: { 
+              user: user,
+              token: "mock-jwt-token-" + user.id,
+              message: "User registered successfully"
+            }
+          };
+        }
+
+  login:
+    path: "/api/auth/login"
+    methods: ["POST"]
+    description: "Login with email and password"
+    middleware: ["validate"]
+    runtime:
+      language: "javascript"
+      handler: |
+        function handler(req, res) {
+          const { email, password } = req.body;
+          
+          if (!email || !password) {
+            return {
+              status: 400,
+              body: { error: "Email and password are required" }
+            };
+          }
+          
+          // In real implementation, this would:
+          // 1. Find user by email
+          // 2. Verify password hash
+          // 3. Generate JWT token
+          
+          // Mock successful login
+          const user = {
+            id: 1,
+            email: email.toLowerCase(),
+            name: "Demo User"
+          };
+          
+          return {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+            body: { 
+              user: user,
+              token: "mock-jwt-token-" + user.id,
+              message: "Login successful"
+            }
+          };
+        }
+
+  profile:
+    path: "/api/auth/profile"
+    methods: ["GET"]
+    description: "Get current user profile"
+    middleware: ["auth"]
+    runtime:
+      language: "javascript"
+      handler: |
+        function handler(req, res) {
+          const user = req.user; // Set by auth middleware
+          
+          return {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+            body: { 
+              user: user,
+              app_name: globals.app_name,
+              api_version: globals.api_version
+            }
+          };
+        }
+
+  logout:
+    path: "/api/auth/logout"
+    methods: ["POST"]
+    description: "Logout current user"
+    middleware: ["auth"]
+    runtime:
+      language: "javascript"
+      handler: |
+        function handler(req, res) {
+          // In real implementation, this would:
+          // 1. Invalidate the JWT token
+          // 2. Clear session data
+          
+          return {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+            body: { 
+              message: "Logout successful"
+            }
+          };
+        }

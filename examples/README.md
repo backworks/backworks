@@ -1,14 +1,30 @@
 # 🎮 Backworks Examples
 
-This directory contains practical examples showing how to use Backworks to create APIs with service schematics.
+This directory contains practical examples showing Backworks' evolution from simple backend APIs to **universal application generation**.
 
 ## 📁 Available Examples
 
+### **🚀 Current Implementation**
 | Example | Description | Complexity | Features Demonstrated |
 |---------|-------------|------------|----------------------|
 | [**hello-world**](./hello-world/) | Simplest possible API | ⭐ | Basic endpoints, JavaScript handlers |
 | [**blog-api**](./blog-api/) | Blog with posts & comments | ⭐⭐⭐ | CRUD operations, path parameters |
 | [**task-manager**](./task-manager/) | Complete business app | ⭐⭐⭐⭐ | Complex business logic, validation |
+| [**e-commerce-platform**](./e-commerce-platform/) | Plugin-enhanced platform | ⭐⭐⭐⭐⭐ | Plugin system, authentication, caching |
+
+### **🔌 Plugin Architecture Showcase**
+| Plugin Type | Description | Examples |
+|-------------|-------------|----------|
+| **Core Plugins** | Built-in functionality | Auth, rate limiting, caching, analytics |
+| **Business Plugins** | Custom domain logic | Inventory, payment, shipping, fraud detection |
+| **Platform Plugins** | Platform-specific features | Web SEO, desktop notifications, mobile push |
+
+### **🔮 Future Vision (Blueprint-Agnostic Platforms)**
+| Capability | Description | Current Status |
+|------------|-------------|----------------|
+| **Same Blueprint → Multiple Platforms** | One YAML → Web + Desktop + Mobile + CLI | 🔮 Vision |
+| **Plugin System** | Extensible, hot-pluggable functionality | ✅ Framework Ready |
+| **Runtime Strategy** | No code generation, shared runtime | ✅ Current Approach |
 
 ## 🚀 Running Examples
 
@@ -20,7 +36,7 @@ cd backworks
 cargo build --release
 ```
 
-### Run an Example
+### Current Examples (Working Now)
 ```bash
 # Navigate to example directory
 cd examples/hello-world
@@ -33,6 +49,33 @@ curl http://localhost:3002/hello
 
 # View dashboard
 open http://localhost:3003
+```
+
+### Plugin-Enhanced Examples (Working Now)
+```bash
+# Run the e-commerce platform with plugins
+cd examples/e-commerce-platform
+../../target/release/backworks start --config blueprint.yaml
+
+# Test plugin functionality:
+# Authentication: curl -H "Authorization: Bearer token" http://localhost:3000/api/orders
+# Rate limiting: Multiple rapid requests to see throttling
+# Caching: Repeated requests to /api/products return cached responses
+# Analytics: Visit dashboard at http://localhost:3001 to see metrics
+```
+
+### Future Examples (Vision Demonstration)
+```bash
+# Navigate to multi-platform example
+cd examples/task-manager-multiplatform
+
+# Future usage (not yet implemented):
+# ../../target/release/backworks generate --config app.yaml --target all
+# ../../target/release/backworks generate --config app.yaml --target web_service
+# ../../target/release/backworks generate --config app.yaml --target desktop_app
+
+# For now, examine the blueprint structure:
+cat app.yaml  # See the multi-platform application definition
 ```
 
 ## 📋 Example Details

@@ -1,0 +1,165 @@
+# Security Plugin Configurations
+auth:
+  enabled: true
+  type: "jwt"
+  description: "JWT-based authentication for API access"
+  
+  config:
+    secret: "${JWT_SECRET}"
+    expiry: "24h"
+    refresh_enabled: true
+    algorithm: "HS256"
+    
+  hooks: ["before_request"]
+  
+  # Endpoint-specific auth requirements
+  endpoints:
+    "/api/products": "optional"      # Public read, auth for write
+    "/api/orders": "required"        # All operations require auth
+    "/api/customers": "admin"        # Admin only
+    "/api/admin/*": "admin"          # Admin endpoints
+  
+  # Target-specific compilation
+  compilation:
+    web_api:
+      server_validation: true
+      token_refresh: true
+      session_management: true
+    desktop_app:
+      local_auth_only: true
+      encrypted_storage: true
+      offline_validation: true
+    mobile_app:
+      api_key_auth: true
+      biometric_auth: true
+      token_caching: true
+
+rate_limiter:
+  enabled: true
+  type: "memory"  # or "redis" for distributed
+  description: "Request rate limiting and DDoS protection"
+  
+  config:
+    # Global rate limits
+    global:
+      max_requests: 1000
+      window_seconds: 3600
+      burst_limit: 50
+    
+    # Endpoint-specific limits
+    endpoints:
+      "/api/products":
+        read: { max: 500, window: 3600 }
+        write: { max: 50, window: 3600 }
+      "/api/orders":
+        max: 100
+        window: 3600
+      "/api/auth/login":
+        max: 10
+        window: 900  # 15 minutes
+  
+  hooks: ["before_request"]
+  
+  # Target-specific compilation
+  compilation:
+    web_api:
+      distributed_limiting: true
+      redis_backend: true
+      ddos_protection: true
+    desktop_app:
+      local_limiting_only: true
+      reduced_limits: true
+    mobile_app:
+      api_key_limiting: true
+      cellular_aware: true
+
+cors:
+  enabled: true
+  type: "web_security"
+  description: "Cross-Origin Resource Sharing configuration"
+  
+  config:
+    allowed_origins:
+      - "https://ecommerce.com"
+      - "https://admin.ecommerce.com"
+      - "http://localhost:3000"  # Development
+    allowed_methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+    allowed_headers: ["Authorization", "Content-Type", "X-API-Key"]
+    credentials: true
+    max_age: 3600
+  
+  hooks: ["before_request"]
+  
+  # Target-specific compilation
+  compilation:
+    web_api:
+      strict_cors: true
+      preflight_caching: true
+    desktop_app:
+      exclude: true  # Not needed for desktop
+    mobile_app:
+      exclude: true  # Not needed for mobile
+
+ssl_security:
+  enabled: true
+  type: "transport_security"
+  description: "SSL/TLS security headers and configuration"
+  
+  config:
+    force_https: true
+    hsts_enabled: true
+    hsts_max_age: 31536000  # 1 year
+    certificate_pinning: true
+    tls_version: "1.2+"
+    
+  hooks: ["after_response"]
+  
+  # Target-specific compilation
+  compilation:
+    web_api:
+      strict_transport_security: true
+      certificate_transparency: true
+    desktop_app:
+      local_certificates: true
+      certificate_validation: true
+    mobile_app:
+      certificate_pinning: true
+      network_security_config: true
+
+input_validation:
+  enabled: true
+  type: "security"
+  description: "Input validation and sanitization"
+  
+  config:
+    max_request_size: "10MB"
+    allowed_content_types:
+      - "application/json"
+      - "application/x-www-form-urlencoded"
+      - "multipart/form-data"
+    
+    # Field validation rules
+    validation_rules:
+      email: "^[^@]+@[^@]+\.[^@]+$"
+      phone: "^\\+?[1-9]\\d{1,14}$"
+      uuid: "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    
+    sanitization:
+      strip_html: true
+      escape_sql: true
+      normalize_unicode: true
+  
+  hooks: ["before_request"]
+  
+  # Target-specific compilation
+  compilation:
+    web_api:
+      server_side_validation: true
+      sql_injection_protection: true
+      xss_protection: true
+    desktop_app:
+      client_side_validation: true
+      local_sanitization: true
+    mobile_app:
+      form_validation: true
+      secure_input_handling: true

@@ -1,0 +1,141 @@
+{
+  "name": "task-manager",
+  "version": "1.0.0",
+  "description": "A comprehensive task management application",
+  "author": "Backworks Team",
+  "license": "MIT",
+  
+  "entrypoint": "blueprints/main.yaml",
+  "type": "application",
+  
+  "blueprints": {
+    "main": "blueprints/main.yaml",
+    "endpoints": "blueprints/endpoints/",
+    "database": "blueprints/database.yaml"
+  },
+  
+  "server": {
+    "host": "0.0.0.0",
+    "port": 3000,
+    "cors": true,
+    "middleware": ["auth", "logging", "rate_limit"]
+  },
+  
+  "dashboard": {
+    "enabled": true,
+    "port": 3001,
+    "auth": false
+  },
+  
+  "dependencies": {
+    "backworks-auth": "^1.0.0",
+    "backworks-postgresql": "^2.1.0"
+  },
+  
+  "plugins": {
+    "backworks-auth": {
+      "type": "jwt",
+      "config": {
+        "secret": "${JWT_SECRET}",
+        "expiry": "24h",
+        "algorithms": ["HS256"]
+      },
+      "hooks": ["before_request"],
+      "exclude_paths": ["/api/auth/login", "/api/auth/register", "/health"]
+    },
+    "backworks-rate-limiter": {
+      "version": "^1.2.0",
+      "config": {
+        "max_requests": 100,
+        "window_seconds": 3600,
+        "per_ip": true
+      },
+      "hooks": ["before_request"]
+    },
+    "backworks-cors": {
+      "version": "^1.0.0",
+      "config": {
+        "origins": ["http://localhost:3000", "http://localhost:3001"],
+        "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        "credentials": true
+      }
+    },
+    "backworks-logging": {
+      "version": "^2.0.0",
+      "config": {
+        "level": "info",
+        "format": "json",
+        "include_request_body": false
+      },
+      "hooks": ["before_request", "after_response"]
+    }
+  },
+  
+  "database": {
+    "provider": "postgresql",
+    "package": "backworks-postgresql",
+    "version": "^2.1.0",
+    "connection": "${DATABASE_URL}",
+    "pool_size": 10,
+    "migrations": {
+      "enabled": true,
+      "directory": "./migrations"
+    },
+    "schema": "blueprints/database.yaml"
+  },
+  
+  "ui": {
+    "framework": "builtin",
+    "theme": {
+      "package": "backworks-theme-modern",
+      "version": "^1.0.0",
+      "config": {
+        "primary_color": "#3b82f6",
+        "font_family": "system-ui"
+      }
+    },
+    "components": "blueprints/ui/"
+  },
+  
+  "scripts": {
+    "dev": "backworks start --watch",
+    "build": "backworks compile --target production",
+    "test": "backworks test",
+    "deploy": "backworks deploy --target staging",
+    "migrate": "backworks db migrate"
+  },
+  
+  "targets": {
+    "web_api": {
+      "enabled": true,
+      "profile": "server",
+      "output": "target/web_api/"
+    },
+    "desktop_app": {
+      "enabled": false,
+      "profile": "client",
+      "output": "target/desktop_app/"
+    }
+  },
+  
+  "security": {
+    "profiles": {
+      "development": {
+        "strip_secrets": false,
+        "enable_debug": true,
+        "verbose_logging": true
+      },
+      "production": {
+        "strip_secrets": true,
+        "obfuscate_internals": true,
+        "enable_rate_limiting": true,
+        "require_https": true
+      }
+    }
+  },
+  
+  "export": {
+    "format": "static",
+    "output": "./dist"
+  }
+}

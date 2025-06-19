@@ -1,0 +1,42 @@
+name: "Hello World API"
+description: "The simplest possible Backworks API demonstrating project-based structure"
+
+endpoints:
+  hello:
+    path: "/hello"
+    methods: ["GET"]
+    description: "Say hello to the world"
+    runtime:
+      language: "javascript"
+      handler: |
+        function handler(req, res) {
+          return {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+            body: { 
+              message: "Hello, World!",
+              timestamp: new Date().toISOString(),
+              version: "1.0.0"
+            }
+          };
+        }
+  
+  echo:
+    path: "/echo"
+    methods: ["POST"]
+    description: "Echo back the request body"
+    runtime:
+      language: "javascript"
+      handler: |
+        function handler(req, res) {
+          return {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+            body: {
+              echo: req.body,
+              method: req.method,
+              path: req.path,
+              timestamp: new Date().toISOString()
+            }
+          };
+        }

@@ -1,0 +1,240 @@
+pages:
+  dashboard:
+    path: "/"
+    title: "Task Dashboard"
+    layout: "grid"
+    auth_required: true
+    components:
+      - type: "stats_panel"
+        title: "Task Overview"
+        grid_area: "stats"
+        stats:
+          - label: "Total Tasks"
+            source: "/api/tasks"
+            field: "total"
+            color: "blue"
+          - label: "Active Tasks"
+            source: "/api/tasks?status=active"
+            field: "total"
+            color: "green"
+          - label: "Pending Tasks"
+            source: "/api/tasks?status=pending"
+            field: "total"
+            color: "yellow"
+          - label: "Completed Tasks"
+            source: "/api/tasks?status=completed"
+            field: "total"
+            color: "purple"
+      
+      - type: "data_table"
+        title: "My Tasks"
+        grid_area: "tasks"
+        source: "/api/tasks"
+        columns:
+          - field: "title"
+            type: "text"
+            sortable: true
+            searchable: true
+          - field: "status"
+            type: "badge"
+            filterable: true
+            options:
+              pending: { color: "yellow", icon: "clock" }
+              active: { color: "blue", icon: "play" }
+              completed: { color: "green", icon: "check" }
+              cancelled: { color: "red", icon: "x" }
+          - field: "priority"
+            type: "badge"
+            filterable: true
+            options:
+              low: { color: "gray", icon: "arrow-down" }
+              medium: { color: "blue", icon: "minus" }
+              high: { color: "orange", icon: "arrow-up" }
+              urgent: { color: "red", icon: "alert-triangle" }
+          - field: "due_date"
+            type: "date"
+            sortable: true
+            format: "MMM dd, yyyy"
+          - field: "created_at"
+            type: "date"
+            sortable: true
+            format: "MMM dd, yyyy HH:mm"
+        actions: ["view", "edit", "delete"]
+        pagination: true
+        page_size: 20
+        
+      - type: "form_panel"
+        title: "Add New Task"
+        grid_area: "form"
+        target: "/api/tasks"
+        method: "POST"
+        success_message: "Task created successfully!"
+        fields:
+          - name: "title"
+            type: "text"
+            label: "Task Title"
+            placeholder: "Enter task title..."
+            required: true
+            validation: "string|min:1|max:255"
+          - name: "description"
+            type: "textarea"
+            label: "Description"
+            placeholder: "Task description (optional)..."
+            rows: 3
+            validation: "string|max:1000"
+          - name: "priority"
+            type: "select"
+            label: "Priority"
+            default: "medium"
+            options:
+              - value: "low"
+                label: "Low Priority"
+              - value: "medium"
+                label: "Medium Priority"
+              - value: "high"
+                label: "High Priority"
+              - value: "urgent"
+                label: "Urgent"
+          - name: "due_date"
+            type: "datetime"
+            label: "Due Date"
+            placeholder: "Select due date..."
+            validation: "date|after:now"
+        buttons:
+          - type: "submit"
+            label: "Create Task"
+            color: "primary"
+          - type: "reset"
+            label: "Clear Form"
+            color: "secondary"
+
+  login:
+    path: "/login"
+    title: "Login"
+    layout: "center"
+    public: true
+    components:
+      - type: "auth_form"
+        title: "Sign In"
+        subtitle: "Welcome back to Task Manager"
+        target: "/api/auth/login"
+        method: "POST"
+        success_redirect: "/"
+        fields:
+          - name: "email"
+            type: "email"
+            label: "Email Address"
+            placeholder: "your@email.com"
+            required: true
+            validation: "email"
+          - name: "password"
+            type: "password"
+            label: "Password"
+            placeholder: "Enter your password"
+            required: true
+            validation: "string|min:8"
+        buttons:
+          - type: "submit"
+            label: "Sign In"
+            color: "primary"
+            full_width: true
+        links:
+          - label: "Don't have an account? Sign up"
+            href: "/register"
+            
+  register:
+    path: "/register"
+    title: "Register"
+    layout: "center"
+    public: true
+    components:
+      - type: "auth_form"
+        title: "Create Account"
+        subtitle: "Join Task Manager today"
+        target: "/api/auth/register"
+        method: "POST"
+        success_redirect: "/login"
+        success_message: "Account created successfully! Please sign in."
+        fields:
+          - name: "name"
+            type: "text"
+            label: "Full Name"
+            placeholder: "John Doe"
+            required: true
+            validation: "string|min:1|max:255"
+          - name: "email"
+            type: "email"
+            label: "Email Address"
+            placeholder: "your@email.com"
+            required: true
+            validation: "email"
+          - name: "password"
+            type: "password"
+            label: "Password"
+            placeholder: "Choose a strong password"
+            required: true
+            validation: "string|min:8"
+          - name: "password_confirmation"
+            type: "password"
+            label: "Confirm Password"
+            placeholder: "Repeat your password"
+            required: true
+            validation: "string|min:8|same:password"
+        buttons:
+          - type: "submit"
+            label: "Create Account"
+            color: "primary"
+            full_width: true
+        links:
+          - label: "Already have an account? Sign in"
+            href: "/login"
+
+# CSS Grid layouts
+layouts:
+  grid:
+    display: "grid"
+    grid_template_areas: |
+      "stats stats"
+      "tasks form"
+    grid_template_columns: "2fr 1fr"
+    grid_template_rows: "auto 1fr"
+    gap: "1rem"
+    padding: "1rem"
+    
+  center:
+    display: "flex"
+    justify_content: "center"
+    align_items: "center"
+    min_height: "100vh"
+    padding: "1rem"
+
+# Theme configuration
+theme:
+  colors:
+    primary: "#3b82f6"
+    secondary: "#6b7280"
+    success: "#10b981"
+    warning: "#f59e0b"
+    error: "#ef4444"
+    background: "#f9fafb"
+    surface: "#ffffff"
+    text: "#111827"
+    muted: "#6b7280"
+  
+  typography:
+    font_family: "system-ui, -apple-system, sans-serif"
+    font_sizes:
+      xs: "0.75rem"
+      sm: "0.875rem"
+      base: "1rem"
+      lg: "1.125rem"
+      xl: "1.25rem"
+      "2xl": "1.5rem"
+  
+  spacing:
+    xs: "0.25rem"
+    sm: "0.5rem"
+    base: "1rem"
+    lg: "1.5rem"
+    xl: "2rem"
+    "2xl": "3rem"

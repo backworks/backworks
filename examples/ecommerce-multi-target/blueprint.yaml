@@ -1,0 +1,196 @@
+# Main Blueprint Orchestration File
+name: "E-commerce Multi-Target Platform"
+version: "1.0.0"
+description: "Organized multi-file blueprint with target-specific compilation"
+
+# Include organized YAML files
+includes:
+  - "./endpoints/products.yaml"
+  - "./endpoints/orders.yaml"
+  - "./endpoints/customers.yaml"
+  - "./endpoints/admin.yaml"
+  - "./plugins/security.yaml"
+  - "./plugins/business.yaml"
+  - "./plugins/analytics.yaml"
+  - "./plugins/mobile.yaml"
+  - "./database/schemas.yaml"
+  - "./ui/web/components.yaml"
+  - "./ui/desktop/components.yaml"
+  - "./ui/mobile/components.yaml"
+  - "./ui/admin/components.yaml"
+  - "./infrastructure/development.yaml"
+  - "./infrastructure/production.yaml"
+
+# Target-specific compilation profiles
+targets:
+  # Web API Server
+  web_api:
+    compile_profile: "server"
+    description: "Backend API server for web and mobile clients"
+    includes:
+      - "endpoints/products.yaml"
+      - "endpoints/orders.yaml"
+      - "endpoints/customers.yaml"
+      - "endpoints/admin.yaml"
+      - "plugins/security.yaml"
+      - "plugins/business.yaml"
+      - "plugins/analytics.yaml"
+      - "database/schemas.yaml"
+    excludes:
+      - "ui/**"
+      - "plugins/mobile.yaml"
+    security_profile: "production"
+    optimizations:
+      - "strip_ui_components"
+      - "remove_client_secrets"
+      - "obfuscate_internal_endpoints"
+      - "enable_server_security"
+
+  # Desktop Application
+  desktop_app:
+    compile_profile: "client"
+    description: "Desktop application for store management"
+    includes:
+      - "endpoints/products.yaml"
+      - "endpoints/orders.yaml"
+      - "ui/desktop/components.yaml"
+      - "plugins/security.yaml"  # Client-safe auth only
+    excludes:
+      - "endpoints/admin.yaml"
+      - "endpoints/customers.yaml"
+      - "database/**"
+      - "plugins/business.yaml"
+      - "plugins/analytics.yaml"
+      - "ui/web/**"
+      - "ui/mobile/**"
+      - "ui/admin/**"
+    security_profile: "client"
+    optimizations:
+      - "convert_to_api_calls"
+      - "encrypt_local_config"
+      - "remove_server_secrets"
+      - "enable_local_auth"
+
+  # Mobile Application
+  mobile_app:
+    compile_profile: "mobile"
+    description: "Mobile app for customer shopping experience"
+    includes:
+      - "endpoints/products.yaml"
+      - "endpoints/orders.yaml"  # Customer orders only
+      - "ui/mobile/components.yaml"
+      - "plugins/mobile.yaml"
+    excludes:
+      - "endpoints/customers.yaml"
+      - "endpoints/admin.yaml"
+      - "database/**"
+      - "plugins/business.yaml"
+      - "plugins/analytics.yaml"
+      - "ui/web/**"
+      - "ui/desktop/**"
+      - "ui/admin/**"
+    security_profile: "mobile"
+    optimizations:
+      - "minimize_endpoint_surface"
+      - "enable_certificate_pinning"
+      - "add_runtime_protection"
+      - "optimize_for_mobile"
+
+  # Admin Panel
+  admin_panel:
+    compile_profile: "admin"
+    description: "Full-featured admin panel with complete access"
+    includes:
+      - "endpoints/**"
+      - "plugins/**"
+      - "database/**"
+      - "ui/admin/**"
+    excludes:
+      - "ui/mobile/**"
+      - "ui/desktop/**"
+      - "plugins/mobile.yaml"
+    security_profile: "admin"
+    optimizations:
+      - "enable_full_audit_logging"
+      - "add_admin_authentication"
+      - "enable_ip_whitelisting"
+      - "maximum_security_headers"
+
+# Security profiles for compilation
+security:
+  profiles:
+    production:
+      strip_secrets: true
+      obfuscate_internals: true
+      enable_rate_limiting: true
+      require_https: true
+      audit_logging: true
+      remove_debug_info: true
+      
+    client:
+      local_auth_only: true
+      encrypt_local_config: true
+      sandbox_plugins: true
+      disable_admin_endpoints: true
+      remove_server_secrets: true
+      
+    mobile:
+      api_key_auth: true
+      certificate_pinning: true
+      runtime_protection: true
+      minimal_endpoint_surface: true
+      encrypted_storage: true
+      
+    admin:
+      admin_auth_required: true
+      full_audit_logging: true
+      ip_whitelist_enabled: true
+      maximum_security_headers: true
+      sensitive_data_encryption: true
+      
+    development:
+      strip_secrets: false
+      enable_debug: true
+      disable_rate_limiting: false
+      verbose_logging: true
+      allow_insecure_connections: true
+
+# Environment configurations
+environments:
+  development:
+    database_url: "sqlite:./dev.db"
+    api_base_url: "http://localhost:3000"
+    log_level: "debug"
+    
+  staging:
+    database_url: "${STAGING_DATABASE_URL}"
+    api_base_url: "https://api-staging.ecommerce.com"
+    log_level: "info"
+    
+  production:
+    database_url: "${PRODUCTION_DATABASE_URL}"
+    api_base_url: "https://api.ecommerce.com"
+    log_level: "warn"
+
+# Compilation settings
+compiler:
+  # Enable/disable compiler optimizations
+  optimizations:
+    dead_code_elimination: true
+    secret_stripping: true
+    internal_obfuscation: true
+    platform_adaptation: true
+    
+  # Output settings
+  output:
+    directory: "./compiled"
+    format: "yaml"  # or "json"
+    minify: false
+    validate: true
+    
+  # Security settings
+  security:
+    enforce_profiles: true
+    validate_includes: true
+    check_circular_deps: true
+    verify_permissions: true

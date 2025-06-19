@@ -1,45 +1,132 @@
 # 🚀 Backworks
 
-**Declarative backend platform that transforms service schematics into working APIs.**
+**Blueprint-agnostic platform that transforms functional workflows into native applications with platform-specific SDKs and implementations.**
 
 ## 🎯 **What is Backworks?**
 
-Backworks turns simple service schematics into fully functional backend APIs with built-in monitoring.
+Backworks transforms application workflows and functionalities into complete applications across any platform. You describe WHAT your application does (workflows, data flows, user interactions) - we provide the platform-specific SDKs and implementations for HOW it works on each target platform.
 
-**Schematic → Working API + Dashboard**
+**Single Blueprint → Multi-Platform Applications**
 
 ```yaml
-# Write this service schematic (blueprint.yaml)
-name: "My API"
-mode: "runtime"
-server:
-  port: 3000
-dashboard:
-  enabled: true
-  port: 3001
-endpoints:
-  users:
-    path: "/users"  
-    methods: ["GET"]
-    runtime:
-      language: "javascript"
-      handler: |
-        function handler(req, res) {
-          return {
-            status: 200,
-            body: { users: ['John', 'Jane'] }
-          };
-        }
+# Write this application blueprint (app.yaml)
+name: "Task Manager"
+version: "1.0.0"
+
+# Core Application Logic
+application:
+  domain: "task_management"
+  
+  # Data Models
+  models:
+    task:
+      id: "identifier"
+      title: "text required"
+      description: "text optional"
+      status: "enum(pending,active,completed)"
+      priority: "enum(low,medium,high)"
+      created_at: "timestamp auto"
+      updated_at: "timestamp auto"
+  
+  # Business Operations
+  operations:
+    list_tasks:
+      input: { filters: "object optional" }
+      output: { tasks: "array<task>" }
+      logic: |
+        // Generic business logic (language-agnostic)
+        return storage.query('task', input.filters || {})
+    
+    create_task:
+      input: { task: "task" }
+      output: { task: "task" }
+      logic: |
+        task.id = generate_id()
+        task.created_at = now()
+        return storage.save('task', task)
+
+# Target Platforms & Languages
+targets:
+  # Web Service (Current Implementation)
+  web_service:
+    language: "rust"
+    runtime: "tokio"
+    protocol: "http"
+    port: 3000
+    endpoints:
+      - operation: "list_tasks"
+        path: "/tasks"
+        method: "GET"
+      - operation: "create_task"
+        path: "/tasks"
+        method: "POST"
+  
+  # Desktop Application (Future)
+  desktop_app:
+    language: "rust"
+    framework: "tauri"
+    ui_library: "qwik"
+    platform: ["windows", "macos", "linux"]
+    interface:
+      - operation: "list_tasks"
+        component: "TaskList"
+      - operation: "create_task"
+        component: "TaskForm"
+  
+  # Mobile Application (Future)
+  mobile_app:
+    language: "dart"
+    framework: "flutter"
+    platform: ["ios", "android"]
+    interface:
+      - operation: "list_tasks"
+        screen: "TaskListScreen"
+      - operation: "create_task"
+        screen: "CreateTaskScreen"
+  
+  # CLI Tool (Future)
+  cli_tool:
+    language: "go"
+    framework: "cobra"
+    commands:
+      - operation: "list_tasks"
+        command: "list"
+        flags: ["--filter", "--format"]
+      - operation: "create_task"
+        command: "create"
+        args: ["title", "description"]
+
+# Infrastructure (Shared Across All Targets)
+infrastructure:
+  storage:
+    type: "sqlite"
+    connection: "./tasks.db"
+    migrations: true
+  
+  config:
+    environment_variables:
+      - "DATABASE_URL"
+      - "LOG_LEVEL"
 ```
 
 ```bash
-# Get this working API
-backworks start --config blueprint.yaml
-curl http://localhost:3000/users
-# → {"users": ["John", "Jane"]}
+# Generate all target applications
+backworks generate --config app.yaml --target all
+
+# Or generate specific targets
+backworks generate --config app.yaml --target web_service
+backworks generate --config app.yaml --target desktop_app
+backworks generate --config app.yaml --target mobile_app
+backworks generate --config app.yaml --target cli_tool
+
+# Generated outputs:
+# ./targets/web_service/    (Rust + Axum web service)
+# ./targets/desktop_app/    (Rust + Tauri desktop app)
+# ./targets/mobile_app/     (Flutter mobile app)
+# ./targets/cli_tool/       (Go CLI application)
 ```
 
-**Dashboard included:** `http://localhost:3001`
+**Multi-Target Development** - Same business logic, different implementations for each platform
 
 ---
 
@@ -51,63 +138,212 @@ git clone https://github.com/devstroop/backworks
 cd backworks
 cargo build --release
 
-# 2. Build the Studio (web interface)
-cd studio
-npm install
-npm run build
-cd ..
+# 2. Generate a complete application
+cd examples/task-manager
+../../target/release/backworks generate --config app.yaml --target web_service
 
-# 3. Try an example schematic
+# 3. Run the generated web service
+cd targets/web_service
+cargo run
+
+# 4. Test your API
+curl http://localhost:3000/tasks
+```
+
+### **Or try the current runtime mode:**
+```bash
 cd examples/hello-world
 ../../target/release/backworks start --config blueprint.yaml
-
-# 4. Test the API
-curl http://localhost:3002/hello
-
-# 5. View Studio dashboard
-open http://localhost:3003
+curl http://localhost:3000/hello
 ```
 
 ---
 
 ## 📋 **Core Features**
 
-- **🎯 Declarative Design** - Service schematics become your backend
-- **⚡ Runtime Execution** - JavaScript handlers for business logic  
-- **🎨 Studio Interface** - Visual blueprint designer and API testing tools
-- **📊 Built-in Dashboard** - Real-time API monitoring and request logs
-- **🚀 Zero Dependencies** - Single Rust binary with integrated web interface
-- **🔄 Hot Reload** - Blueprint changes reflect immediately
-- **🛡️ Error Handling** - Robust error handling and status reporting
+### **🎯 Language-Agnostic Application Generation**
+- **Universal Blueprints** - Define application logic once, generate anywhere
+- **Multi-Platform Targets** - Web services, desktop apps, mobile apps, CLI tools
+- **Code Generation** - Native code in Rust, Go, Dart, JavaScript, and more
+- **Business Logic Reuse** - Same operations across all platforms
+
+### **🚀 Current Backend Capabilities**  
+- **Runtime Execution** - JavaScript handlers for business logic  
+- **Database Integration** - SQL/NoSQL operations from YAML
+- **Proxy Mode** - Forward to existing APIs with transformations
+- **Plugin System** - Extensible architecture with hot-pluggable functionality
+
+### **🔌 Plugin Ecosystem**
+- **Authentication** - JWT, OAuth, API keys, session management
+- **Caching** - Memory, Redis, distributed caching strategies
+- **Rate Limiting** - Request throttling, DDoS protection
+- **Analytics** - Metrics, logging, performance monitoring
+- **Custom Plugins** - Build domain-specific extensions
+
+### **🎨 Future Platform Support**
+- **Desktop Applications** - Same blueprint → Native desktop apps
+- **Mobile Applications** - Same blueprint → iOS/Android apps
+- **CLI Tools** - Same blueprint → Command-line interfaces
+- **Microservices** - Same blueprint → Distributed service mesh
+- **WebAssembly** - Same blueprint → WASM applications
+- **Theme System** - Customizable design systems
+
+### **⚡ Developer Experience**
+- **Zero Dependencies** - Single binary with integrated web interface
+- **Hot Reload** - Changes reflect immediately across the stack
+- **Visual Designer** - Drag-and-drop blueprint creation
+- **Built-in Testing** - API and UI testing tools included
 
 ---
 
 ## 🎮 **Blueprint Templates**
 
-| Template | Description | Complexity |
-|---------|-------------|------------|
-| [`hello-world`](./examples/hello-world/) | Simplest possible API | ⭐ |
-| [`blog-api`](./examples/blog-api/) | Blog with posts & comments | ⭐⭐⭐ |
-| [`task-manager`](./examples/task-manager/) | Complete business app | ⭐⭐⭐⭐ |
+| Template | Type | Description | Complexity |
+|---------|------|-------------|------------|
+| [`hello-world`](./examples/hello-world/) | Backend | Simplest possible API | ⭐ |
+| [`blog-api`](./examples/blog-api/) | Backend | Blog with posts & comments | ⭐⭐⭐ |
+| [`task-manager`](./examples/task-manager/) | Backend | Complete business API | ⭐⭐⭐⭐ |
+| [`task-manager-fullstack`](./examples/task-manager-fullstack/) | Full-Stack | Complete task app with UI | ⭐⭐⭐⭐⭐ |
+| [`e-commerce-platform`](./examples/e-commerce-platform/) | Full-Stack | Multi-service e-commerce | ⭐⭐⭐⭐⭐ |
 
-Each template shows the **Service Schematic → API** transformation in action.
+### **🔥 Unified vs. Distributed Blueprints**
+
+**Single File (Unified):**
+```yaml
+# app.yaml - Everything in one place
+name: "My Application"
+mode: "full-stack"
+api: { endpoints: {...} }
+interface: { pages: {...} }
+infrastructure: { database: {...} }
+```
+
+**Multi-File (Distributed):**
+```yaml
+# app.yaml - Main orchestration
+name: "My Application" 
+mode: "full-stack"
+includes:
+  - "./api/endpoints.yaml"
+  - "./interface/pages.yaml" 
+  - "./infrastructure/config.yaml"
+  - "./shared/schemas.yaml"
+
+# api/endpoints.yaml
+endpoints:
+  resources:
+    path: "/api/resources"
+    methods: ["GET", "POST", "PUT", "DELETE"]
+    # ... detailed endpoint config
+
+# interface/pages.yaml
+pages:
+  dashboard:
+    path: "/"
+    components:
+      - type: "data_table"
+        # ... UI component config
+
+# infrastructure/config.yaml
+database:
+  type: "postgresql"
+  connection: "postgresql://user:pass@localhost/myapp"
+storage:
+  type: "s3"
+  bucket: "myapp-uploads"
+```
+
+### **📁 Blueprint Organization**
+
+**Single File (Simple Applications):**
+```yaml
+# app.yaml - Everything in one place
+name: "Task Manager"
+application:
+  models: { ... }
+  operations: { ... }
+targets:
+  web_service: { ... }
+  desktop_app: { ... }
+infrastructure: { ... }
+```
+
+**Distributed Files (Complex Applications):**
+```yaml
+# app.yaml - Main orchestration
+name: "E-commerce Platform"
+includes:
+  - "./models/schemas.yaml"      # Data models
+  - "./operations/business.yaml" # Business logic  
+  - "./targets/platforms.yaml"   # Platform configs
+  - "./infrastructure/config.yaml" # Infrastructure
+
+# models/schemas.yaml
+models:
+  product:
+    id: "identifier"
+    name: "text required"
+    price: "decimal required"
+  user:
+    id: "identifier"
+    email: "email unique"
+
+# operations/business.yaml  
+operations:
+  list_products:
+    input: { category: "text optional" }
+    output: { products: "array<product>" }
+  create_order:
+    input: { user_id: "identifier", items: "array" }
+    output: { order: "order" }
+
+# targets/platforms.yaml
+targets:
+  web_service:
+    language: "rust"
+    endpoints: [...]
+  mobile_app:
+    language: "dart"
+    screens: [...]
+```
 
 ---
 
 ## 🏗️ **Architecture**
 
 ```
-Service Schematic (Blueprint) → Backworks Engine → HTTP API + Dashboard
+Functional Blueprint → Backworks Engine → Platform-Specific Applications
+                                       ├── Web Service (Backworks SDK for Rust)
+                                       ├── Desktop App (Backworks SDK for Tauri)
+                                       ├── Mobile App (Backworks SDK for Flutter)  
+                                       ├── CLI Tool (Backworks SDK for Go)
+                                       └── Future Platform SDKs...
 ```
 
-- **Declarative-First** - Your service design defines everything
-- **Runtime Handlers** - JavaScript for custom business logic
-- **Integrated Monitoring** - Dashboard shows real-time metrics and logs
-- **Simple Deployment** - One process, two ports (API + Dashboard)
-- **Plugin Architecture** - Extensible design for future enhancements
+### **🎯 Blueprint-Agnostic Philosophy**
 
-**Current Implementation:** Runtime mode with JavaScript execution
-**Planned Features:** Database integration, Proxy mode, Plugin system
+**Functionality-First Design:**
+- Describe WHAT your application does (workflows, data, interactions)
+- Platform-agnostic business logic and data models
+- UI/UX workflows defined by behavior, not implementation
+
+**Platform-Specific SDKs:**
+- Each platform gets a native Backworks SDK
+- SDKs translate workflows into platform-optimal implementations
+- No shared runtime - each app is fully native
+
+**Workflow Translation Benefits:**
+- **Native Experience** - Each platform feels native and optimized
+- **Developer Freedom** - Choose best platform for each use case
+- **Blueprint Reuse** - Same functionality across all platforms
+- **SDK Evolution** - Platform SDKs evolve independently
+- **Customization** - Modify generated code as needed
+
+### **🧩 Core Principles**
+- **Declarative-First** - Configuration defines everything
+- **Component Reusability** - Share components across projects
+- **Hot Reload** - Changes reflect across the entire stack
+- **Plugin Architecture** - Extensible for any framework or service
 
 ---
 
@@ -156,21 +392,89 @@ cargo build --release
 ## 🚀 **What's Next?**
 
 **Current Status:** Runtime mode with JavaScript handlers ✅  
-**In Development:** Configuration validation, better error handling  
-**Future Roadmap:** Database integration, Proxy mode, Plugin system
+**In Development:** Proxy mode, Database integration, Blueprint analyzer  
+**Future Vision:** Multi-platform code generation, Language-agnostic development
 
-**Goal:** Make backend development as simple as writing configuration.
+### **🎯 Roadmap Phases**
+
+**Phase 1: Robust Foundation (Current)**
+- ✅ Runtime mode with JavaScript execution
+- ✅ Proxy mode with transformations
+- ✅ Blueprint analyzer with suggestions
+- 🚧 Database mode completion
+- 🚧 Studio modernization
+
+**Phase 2: Code Generation Engine**
+- 🔮 Language-agnostic blueprint parsing
+- 🔮 Code generation templates (Rust, Go, Dart, etc.)
+- 🔮 Platform-specific optimizations
+- 🔮 Template marketplace for custom generators
+
+**Phase 3: Multi-Platform Ecosystem**
+- 🔮 Desktop application generation (Tauri, Electron)
+- 🔮 Mobile application generation (Flutter, React Native)
+- 🔮 CLI tool generation (Cobra, Clap, Click)
+- 🔮 WebAssembly targets
+
+**Phase 4: Universal Development Platform**
+- 🔮 Visual blueprint designer
+- 🔮 Real-time multi-platform preview
+- 🔮 Deployment automation
+- 🔮 Cross-platform testing framework
+
+**Goal:** One blueprint, infinite applications - anywhere, any language, any platform.
 
 ---
 
 ## 🤝 **Contributing**
 
-1. Check out the [examples](./examples/) to understand the current capabilities
+1. Check out the [examples](./examples/) to understand current capabilities
 2. Read [ARCHITECTURE.md](./ARCHITECTURE.md) for design principles  
-3. Read [DIRECTION.md](./DIRECTION.md) for current development direction
+3. Read [IMPLEMENTATION_AUDIT.md](./IMPLEMENTATION_AUDIT.md) for current status
 4. Start with documentation improvements or example additions
-5. Core features welcome with discussion first
+5. Multi-platform generation ideas and templates welcome!
 
 ---
 
-**Backworks: Because APIs should be this simple.**
+**Backworks: Because application development should be this universal.**
+
+### **🔧 Blueprint Compiler Approach**
+The most practical approach: **Organized multi-file projects** with **target-specific compilation** and **built-in security**.
+
+```yaml
+# Main blueprint.yaml orchestrates everything
+name: "E-commerce Platform"
+includes:
+  - "./endpoints/products.yaml"
+  - "./plugins/security.yaml"
+  - "./database/schemas.yaml"
+  - "./ui/components.yaml"
+
+# Compile for specific targets with security
+targets:
+  web_api:
+    includes: ["endpoints/*", "plugins/security.yaml", "database/*"]
+    excludes: ["ui/*"]
+    security_profile: "production"
+  
+  mobile_app:
+    includes: ["endpoints/products.yaml", "ui/mobile/*"]
+    excludes: ["database/*", "plugins/admin.yaml"]
+    security_profile: "mobile"
+```
+
+```bash
+# Compile target-specific blueprints with security
+backworks compile --config blueprint.yaml --target web_api --security production
+backworks compile --config blueprint.yaml --target mobile_app --security mobile
+
+# Deploy optimized, secure blueprints
+backworks start --config ./compiled/web_api.yaml
+backworks start --config ./compiled/mobile_app.yaml
+```
+
+**Compiler Benefits:**
+- **Security by Design** - Strip secrets, add protection per target
+- **Performance** - Only include what each platform needs
+- **Organization** - Multi-file projects, single source of truth
+- **Attack Surface Reduction** - Each target gets minimal required components

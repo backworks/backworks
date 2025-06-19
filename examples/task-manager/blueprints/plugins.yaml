@@ -1,0 +1,142 @@
+plugins:
+  auth:
+    enabled: true
+    type: "jwt"
+    config:
+      secret: "${JWT_SECRET}"
+      expiry: "24h"
+      algorithms: ["HS256"]
+      cookie_name: "backworks_token"
+      header_name: "Authorization"
+      header_prefix: "Bearer "
+    hooks: ["before_request"]
+    exclude_paths: ["/api/auth/login", "/api/auth/register", "/health"]
+  
+  rate_limiter:
+    enabled: true
+    type: "memory"
+    config:
+      max_requests: 100
+      window_seconds: 3600
+      per_ip: true
+      message: "Rate limit exceeded. Please try again later."
+    hooks: ["before_request"]
+    exclude_paths: ["/health", "/metrics"]
+  
+  cors:
+    enabled: true
+    type: "cors"
+    config:
+      origins: ["http://localhost:3000", "http://localhost:3001"]
+      methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+      headers: ["Content-Type", "Authorization"]
+      credentials: true
+    hooks: ["before_request"]
+  
+  logging:
+    enabled: true
+    type: "structured"
+    config:
+      level: "info"
+      format: "json"
+      include_request_body: false
+      include_response_body: false
+      fields:
+        - "timestamp"
+        - "method"
+        - "path"
+        - "status"
+        - "duration"
+        - "user_id"
+    hooks: ["before_request", "after_response"]
+  
+  validation:
+    enabled: true
+    type: "request_validation"
+    config:
+      schemas:
+        "/api/tasks": {
+          "POST": {
+            "body": {
+              "type": "object",
+              "required": ["title"],
+              "properties": {
+                "title": {"type": "string", "minLength": 1, "maxLength": 255},
+                "description": {"type": "string", "maxLength": 1000},
+                "priority": {"type": "string", "enum": ["low", "medium", "high", "urgent"]},
+                "due_date": {"type": "string", "format": "date-time"}
+              }
+            }
+          }
+        }
+        "/api/auth/register": {
+          "POST": {
+            "body": {
+              "type": "object", 
+              "required": ["email", "password", "name"],
+              "properties": {
+                "email": {"type": "string", "format": "email"},
+                "password": {"type": "string", "minLength": 8},
+                "name": {"type": "string", "minLength": 1, "maxLength": 255}
+              }
+            }
+          }
+        }
+        "/api/auth/login": {
+          "POST": {
+            "body": {
+              "type": "object",
+              "required": ["email", "password"],
+              "properties": {
+                "email": {"type": "string", "format": "email"},
+                "password": {"type": "string", "minLength": 1}
+              }
+            }
+          }
+        }
+    hooks: ["before_request"]
+  
+  caching:
+    enabled: true
+    type: "memory"
+    config:
+      ttl: 300  # 5 minutes
+      max_size: "100MB"
+      cache_patterns:
+        - path: "/api/tasks"
+          methods: ["GET"]
+          vary_by: ["user_id"]
+        - path: "/api/auth/profile"
+          methods: ["GET"]
+          vary_by: ["user_id"]
+    hooks: ["before_request", "after_response"]
+  
+  health_check:
+    enabled: true
+    type: "health"
+    config:
+      endpoint: "/health"
+      checks:
+        - name: "database"
+          type: "postgresql"
+          connection: "${DATABASE_URL}"
+        - name: "memory"
+          type: "memory"
+          max_usage: "80%"
+        - name: "disk"
+          type: "disk"
+          max_usage: "90%"
+    hooks: ["on_startup"]
+  
+  metrics:
+    enabled: true
+    type: "prometheus"
+    config:
+      endpoint: "/metrics"
+      include_defaults: true
+      custom_metrics:
+        - name: "task_operations_total"
+          type: "counter"
+          description: "Total task operations"
+          labels: ["operation", "status"]
+    hooks: ["after_response"]

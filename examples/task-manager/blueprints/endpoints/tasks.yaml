@@ -1,0 +1,141 @@
+endpoints:
+  list_tasks:
+    path: "/api/tasks"
+    methods: ["GET"]
+    description: "Get all tasks for the authenticated user"
+    middleware: ["auth"]
+    runtime:
+      language: "javascript"
+      handler: |
+        function handler(req, res) {
+          const userId = req.user.id;
+          // In real implementation, this would query the database
+          const tasks = [
+            { id: 1, title: "Complete project", status: "active", user_id: userId },
+            { id: 2, title: "Write documentation", status: "pending", user_id: userId }
+          ];
+          
+          return {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+            body: { 
+              tasks: tasks,
+              total: tasks.length,
+              version: globals.api_version
+            }
+          };
+        }
+  
+  create_task:
+    path: "/api/tasks"
+    methods: ["POST"]
+    description: "Create a new task"
+    middleware: ["auth", "validate"]
+    runtime:
+      language: "javascript"
+      handler: |
+        function handler(req, res) {
+          const userId = req.user.id;
+          const { title, description, priority } = req.body;
+          
+          // Validation
+          if (!title || title.trim().length === 0) {
+            return {
+              status: 400,
+              body: { error: "Title is required" }
+            };
+          }
+          
+          // In real implementation, this would insert into database
+          const newTask = {
+            id: Date.now(), // Simple ID generation
+            title: title.trim(),
+            description: description || "",
+            priority: priority || "medium",
+            status: "pending",
+            user_id: userId,
+            created_at: new Date().toISOString()
+          };
+          
+          return {
+            status: 201,
+            headers: { "Content-Type": "application/json" },
+            body: { 
+              task: newTask,
+              message: "Task created successfully"
+            }
+          };
+        }
+        
+  update_task:
+    path: "/api/tasks/:id"
+    methods: ["PUT"]
+    description: "Update an existing task"
+    middleware: ["auth", "validate"]
+    runtime:
+      language: "javascript"
+      handler: |
+        function handler(req, res) {
+          const userId = req.user.id;
+          const taskId = parseInt(req.params.id);
+          const { title, description, status, priority } = req.body;
+          
+          if (!taskId || isNaN(taskId)) {
+            return {
+              status: 400,
+              body: { error: "Valid task ID is required" }
+            };
+          }
+          
+          // In real implementation, this would update in database
+          const updatedTask = {
+            id: taskId,
+            title: title,
+            description: description,
+            status: status,
+            priority: priority,
+            user_id: userId,
+            updated_at: new Date().toISOString()
+          };
+          
+          return {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+            body: { 
+              task: updatedTask,
+              message: "Task updated successfully"
+            }
+          };
+        }
+        
+  delete_task:
+    path: "/api/tasks/:id"
+    methods: ["DELETE"]
+    description: "Delete a task"
+    middleware: ["auth"]
+    runtime:
+      language: "javascript"
+      handler: |
+        function handler(req, res) {
+          const userId = req.user.id;
+          const taskId = parseInt(req.params.id);
+          
+          if (!taskId || isNaN(taskId)) {
+            return {
+              status: 400,
+              body: { error: "Valid task ID is required" }
+            };
+          }
+          
+          // In real implementation, this would delete from database
+          // and verify ownership
+          
+          return {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+            body: { 
+              message: "Task deleted successfully",
+              task_id: taskId
+            }
+          };
+        }

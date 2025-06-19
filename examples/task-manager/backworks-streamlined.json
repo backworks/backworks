@@ -1,0 +1,217 @@
+{
+  "name": "task-manager-streamlined",
+  "version": "1.0.0",
+  "description": "Streamlined task manager with inline plugin configuration",
+  "author": "Backworks Team",
+  "license": "MIT",
+  
+  "entrypoint": "blueprints/main.yaml",
+  "type": "application",
+  
+  "blueprints": {
+    "main": "blueprints/main.yaml",
+    "endpoints": "blueprints/endpoints/"
+  },
+  
+  "server": {
+    "host": "0.0.0.0",
+    "port": 3000,
+    "cors": true,
+    "middleware": ["auth", "logging", "rate_limit"]
+  },
+  
+  "dashboard": {
+    "enabled": true,
+    "port": 3001,
+    "auth": false
+  },
+  
+  "plugins": {
+    "auth": {
+      "package": "backworks-auth",
+      "version": "^1.0.0",
+      "config": {
+        "type": "jwt",
+        "secret": "${JWT_SECRET}",
+        "expiry": "24h",
+        "cookie_name": "backworks_token"
+      }
+    },
+    "rate_limiter": {
+      "package": "backworks-rate-limit", 
+      "version": "^1.2.0",
+      "config": {
+        "max_requests": 100,
+        "window_seconds": 3600,
+        "per_ip": true
+      }
+    },
+    "logging": {
+      "builtin": true,
+      "config": {
+        "level": "info",
+        "format": "json",
+        "include_request_body": false
+      }
+    },
+    "cors": {
+      "builtin": true,
+      "config": {
+        "origins": ["http://localhost:3000", "http://localhost:3001"],
+        "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        "credentials": true
+      }
+    },
+    "validation": {
+      "builtin": true,
+      "schemas": {
+        "/api/tasks": {
+          "POST": {
+            "body": {
+              "type": "object",
+              "required": ["title"],
+              "properties": {
+                "title": {"type": "string", "minLength": 1, "maxLength": 255},
+                "description": {"type": "string", "maxLength": 1000},
+                "priority": {"type": "string", "enum": ["low", "medium", "high", "urgent"]}
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  
+  "database": {
+    "provider": "postgresql",
+    "package": "backworks-postgresql",
+    "version": "^2.1.0",
+    "connection": "${DATABASE_URL}",
+    "pool_size": 10,
+    "migrations": {
+      "enabled": true,
+      "directory": "./migrations"
+    },
+    "tables": {
+      "users": {
+        "id": "serial primary key",
+        "email": "varchar(255) unique not null",
+        "password_hash": "varchar(255) not null",
+        "name": "varchar(255) not null",
+        "created_at": "timestamp default now()"
+      },
+      "tasks": {
+        "id": "serial primary key",
+        "user_id": "integer not null references users(id)",
+        "title": "varchar(255) not null",
+        "description": "text",
+        "status": "varchar(50) default 'pending'",
+        "priority": "varchar(20) default 'medium'",
+        "created_at": "timestamp default now()"
+      }
+    }
+  },
+  
+  "ui": {
+    "framework": "builtin",
+    "theme": {
+      "package": "backworks-theme-modern",
+      "version": "^1.0.0",
+      "config": {
+        "primary_color": "#3b82f6",
+        "secondary_color": "#6b7280",
+        "font_family": "system-ui"
+      }
+    },
+    "pages": {
+      "dashboard": {
+        "path": "/",
+        "title": "Task Dashboard",
+        "auth_required": true,
+        "components": [
+          {
+            "type": "data_table",
+            "title": "My Tasks",
+            "source": "/api/tasks",
+            "columns": [
+              {"field": "title", "type": "text", "sortable": true},
+              {"field": "status", "type": "badge", "filterable": true},
+              {"field": "priority", "type": "badge", "filterable": true}
+            ],
+            "actions": ["view", "edit", "delete"]
+          },
+          {
+            "type": "form_panel",
+            "title": "Add Task",
+            "target": "/api/tasks",
+            "method": "POST",
+            "fields": [
+              {"name": "title", "type": "text", "required": true},
+              {"name": "description", "type": "textarea"},
+              {"name": "priority", "type": "select", "options": ["low", "medium", "high", "urgent"]}
+            ]
+          }
+        ]
+      },
+      "login": {
+        "path": "/login",
+        "title": "Login",
+        "public": true,
+        "components": [
+          {
+            "type": "auth_form",
+            "title": "Sign In",
+            "target": "/api/auth/login",
+            "method": "POST",
+            "fields": [
+              {"name": "email", "type": "email", "required": true},
+              {"name": "password", "type": "password", "required": true}
+            ]
+          }
+        ]
+      }
+    }
+  },
+  
+  "scripts": {
+    "dev": "backworks start --watch",
+    "build": "backworks compile --target production",
+    "test": "backworks test",
+    "deploy": "backworks deploy --target staging",
+    "migrate": "backworks db migrate"
+  },
+  
+  "targets": {
+    "web_api": {
+      "enabled": true,
+      "profile": "server",
+      "output": "target/web_api/"
+    },
+    "desktop_app": {
+      "enabled": false,
+      "profile": "client",
+      "output": "target/desktop_app/"
+    }
+  },
+  
+  "security": {
+    "profiles": {
+      "development": {
+        "strip_secrets": false,
+        "enable_debug": true,
+        "verbose_logging": true
+      },
+      "production": {
+        "strip_secrets": true,
+        "obfuscate_internals": true,
+        "enable_rate_limiting": true,
+        "require_https": true
+      }
+    }
+  },
+  
+  "export": {
+    "format": "static",
+    "output": "./dist"
+  }
+}

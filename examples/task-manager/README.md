@@ -1,13 +1,57 @@
-# Task Manager API Example
+# Task Manager
 
-A comprehensive task management backend demonstrating complex business logic, validation, and advanced API patterns.
+A comprehensive task management application built with Backworks, demonstrating the project-based architecture with `backworks.json` metadata and organized blueprint files.
+
+## Project Structure
+
+```
+task-manager/
+├── backworks.json              # Project metadata (like package.json)
+├── blueprints/                 # Blueprint YAML files
+│   ├── main.yaml              # Main application blueprint
+│   ├── database.yaml          # Database schemas and configuration
+│   ├── plugins.yaml           # Plugin configurations
+│   ├── endpoints/             # API endpoint definitions
+│   │   ├── tasks.yaml         # Task management endpoints
+│   │   └── auth.yaml          # Authentication endpoints
+│   └── ui/                    # UI component definitions
+│       └── dashboard.yaml     # Dashboard UI components
+├── migrations/                # Database migrations
+├── static/                    # Static assets
+└── target/                    # Compiled outputs
+```
 
 ## 🚀 Features
 
-- **Complete Task Management** - Full CRUD with status tracking
-- **Advanced Filtering** - Filter by status, priority, assignee, search
-- **User Management** - Team members with workload tracking
-- **Input Validation** - Comprehensive validation with error handling
+### API Endpoints
+- **Task Management**: Create, read, update, delete tasks
+- **User Authentication**: Register, login, logout, profile
+- **Task Categories**: Organize tasks with categories
+- **File Attachments**: Attach files to tasks
+
+### Built-in UI Components
+- **Dashboard**: Overview with statistics and task table
+- **Task Form**: Create and edit tasks with validation
+- **Authentication**: Login and registration forms
+- **Responsive Design**: Works on desktop and mobile
+
+### Plugins & Middleware
+- **JWT Authentication**: Secure API endpoints
+- **Rate Limiting**: Prevent API abuse
+- **CORS**: Cross-origin request handling
+- **Logging**: Structured request/response logging
+- **Validation**: Request body validation
+- **Caching**: Response caching for performance
+- **Health Checks**: System health monitoring
+- **Metrics**: Prometheus metrics collection
+
+### Database Features
+- **PostgreSQL**: Relational database with proper schemas
+- **Migrations**: Database version control
+- **Indexes**: Optimized query performance
+- **Foreign Keys**: Data integrity constraints
+- **Triggers**: Automatic timestamp updates
+- **Seeding**: Initial test data
 - **Business Logic** - Complex workflows and state management
 - **Pagination Support** - Handle large datasets efficiently
 - **Rich Data Models** - Detailed task and user information

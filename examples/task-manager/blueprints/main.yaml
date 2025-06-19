@@ -1,0 +1,21 @@
+name: "Task Manager"
+description: "Multi-file task management application with organized blueprints"
+
+# Include other blueprint files
+includes:
+  - "./endpoints/"           # All YAML files in endpoints/ directory
+  - "./database.yaml"        # Database schema
+  - "./plugins.yaml"         # Plugin configurations
+  - "./ui/"                  # UI component definitions
+
+# Global settings (can be overridden in backworks.json)
+server:
+  middleware: ["cors", "auth", "logging"]
+  timeout: 30000
+
+# Global variables available to all included blueprints
+globals:
+  auth_secret: "${JWT_SECRET}"
+  database_url: "${DATABASE_URL}"
+  api_version: "v1"
+  app_name: "Task Manager"

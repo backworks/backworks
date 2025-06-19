@@ -1,0 +1,157 @@
+# Product Management Endpoints
+products:
+  path: "/api/products"
+  methods: ["GET", "POST", "PUT", "DELETE"]
+  description: "Product catalog management"
+  
+  security:
+    read_access: "public"      # GET requests are public
+    write_access: "admin"      # POST/PUT/DELETE require admin
+    
+  rate_limiting:
+    read: "1000/hour"
+    write: "100/hour"
+    
+  runtime:
+    language: "javascript"
+    handler: |
+      function handler(req, res) {
+        const products = [
+          {
+            id: 1,
+            name: "Wireless Headphones",
+            price: 99.99,
+            stock: 50,
+            category: "electronics",
+            status: "active",
+            created_at: "2025-06-20T10:00:00Z"
+          },
+          {
+            id: 2,
+            name: "Coffee Mug",
+            price: 12.99,
+            stock: 100,
+            category: "home",
+            status: "active",
+            created_at: "2025-06-20T09:30:00Z"
+          }
+        ];
+        
+        switch(req.method) {
+          case 'GET':
+            // Handle filtering, pagination
+            let filteredProducts = products;
+            if (req.query.category) {
+              filteredProducts = products.filter(p => p.category === req.query.category);
+            }
+            if (req.query.status) {
+              filteredProducts = filteredProducts.filter(p => p.status === req.query.status);
+            }
+            return res.json({ 
+              products: filteredProducts,
+              total: filteredProducts.length 
+            });
+            
+          case 'POST':
+            // Create new product (admin only)
+            const newProduct = {
+              id: Date.now(),
+              ...req.body,
+              status: 'active',
+              created_at: new Date().toISOString()
+            };
+            products.push(newProduct);
+            return res.status(201).json({ product: newProduct });
+            
+          case 'PUT':
+            // Update product (admin only)
+            const productId = parseInt(req.params.id);
+            const productIndex = products.findIndex(p => p.id === productId);
+            if (productIndex === -1) {
+              return res.status(404).json({ error: 'Product not found' });
+            }
+            products[productIndex] = { ...products[productIndex], ...req.body };
+            return res.json({ product: products[productIndex] });
+            
+          case 'DELETE':
+            // Delete product (admin only)
+            const deleteId = parseInt(req.params.id);
+            const deleteIndex = products.findIndex(p => p.id === deleteId);
+            if (deleteIndex === -1) {
+              return res.status(404).json({ error: 'Product not found' });
+            }
+            products.splice(deleteIndex, 1);
+            return res.status(204).end();
+            
+          default:
+            return res.status(405).json({ error: 'Method not allowed' });
+        }
+      }
+
+# Product search endpoint
+product_search:
+  path: "/api/products/search"
+  methods: ["GET"]
+  description: "Search products by name, category, or description"
+  
+  security:
+    read_access: "public"
+    
+  rate_limiting:
+    read: "500/hour"
+    
+  runtime:
+    language: "javascript"
+    handler: |
+      function handler(req, res) {
+        const { q, category, min_price, max_price } = req.query;
+        
+        // Mock search implementation
+        let results = [
+          {
+            id: 1,
+            name: "Wireless Headphones",
+            price: 99.99,
+            category: "electronics",
+            relevance: 0.95
+          }
+        ];
+        
+        if (q) {
+          results = results.filter(p => 
+            p.name.toLowerCase().includes(q.toLowerCase())
+          );
+        }
+        
+        return res.json({ 
+          results,
+          query: req.query,
+          total: results.length 
+        });
+      }
+
+# Product categories endpoint
+product_categories:
+  path: "/api/products/categories"
+  methods: ["GET"]
+  description: "Get all product categories"
+  
+  security:
+    read_access: "public"
+    
+  rate_limiting:
+    read: "200/hour"
+    
+  runtime:
+    language: "javascript"
+    handler: |
+      function handler(req, res) {
+        const categories = [
+          { id: 1, name: "electronics", count: 15 },
+          { id: 2, name: "home", count: 8 },
+          { id: 3, name: "books", count: 12 },
+          { id: 4, name: "clothing", count: 25 }
+        ];
+        
+        return res.json({ categories });
+      }
