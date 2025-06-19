@@ -147,7 +147,7 @@ impl Dashboard {
 
 // Route handlers for the Qwik dashboard
 async fn serve_qwik_dashboard() -> Response {
-    match std::fs::read_to_string("dashboard/dist/index.html") {
+    match std::fs::read_to_string("studio/dist/index.html") {
         Ok(content) => {
             axum::response::Response::builder()
                 .header("content-type", "text/html")
@@ -226,8 +226,8 @@ async fn serve_static_files(
         return (StatusCode::NOT_FOUND, "File not found").into_response();
     }
     
-    // Map paths to dashboard/dist/ directory
-    let file_path = format!("dashboard/dist{}", path);
+    // Map paths to studio/dist/ directory
+    let file_path = format!("studio/dist{}", path);
     
     tracing::info!("Mapped path {} to file_path: {}", path, file_path);
     
@@ -512,7 +512,7 @@ async fn get_simple_api_metrics(
 
 async fn serve_simple_dashboard() -> Response {
     // Serve the Qwik dashboard HTML file
-    match std::fs::read_to_string("dashboard/dist/index.html") {
+    match std::fs::read_to_string("studio/dist/index.html") {
         Ok(content) => {
             axum::response::Response::builder()
                 .header("content-type", "text/html")
@@ -872,21 +872,21 @@ async fn serve_static_files(
         return (StatusCode::NOT_FOUND, "File not found").into_response();
     }
     
-    // Map various request paths to the actual file location in dashboard/dist/
+    // Map various request paths to the actual file location in studio/dist/
     let file_path = if path.starts_with("/pkg/") {
-        // Remove /pkg/ prefix and look in dashboard/dist/
+        // Remove /pkg/ prefix and look in studio/dist/
         let filename = path.strip_prefix("/pkg/").unwrap_or("");
-        format!("dashboard/dist/{}", filename)
+        format!("studio/dist/{}", filename)
     } else if path.starts_with("/assets/") {
         // Assets path
-        format!("dashboard/dist{}", path)
+        format!("studio/dist{}", path)
     } else if path.starts_with("/build/") {
         // Qwik build assets
-        format!("dashboard/dist{}", path)
+        format!("studio/dist{}", path)
     } else {
-        // For root-level requests (CSS, JS, WASM files), look directly in dashboard/dist/
+        // For root-level requests (CSS, JS, WASM files), look directly in studio/dist/
         let filename = path.strip_prefix("/").unwrap_or("");
-        format!("dashboard/dist/{}", filename)
+        format!("studio/dist/{}", filename)
     };
     
     tracing::info!("Mapped path {} to file_path: {}", path, file_path);

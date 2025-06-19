@@ -1,11 +1,20 @@
 @import "tailwindcss";
 
-/* Dark mode support */
-@media (prefers-color-scheme: dark) {
-  :root {
-    color-scheme: dark;
-  }
+/* Prevent system preference override - let JavaScript control the theme */
+html.dark {
+  color-scheme: dark !important;
 }
+
+html:not(.dark) {
+  color-scheme: light !important;
+}
+
+/* Enhanced transition for theme switching */
+html {
+  transition: color-scheme 0.3s ease;
+}
+
+/* Removed auto system preference to avoid conflicts with manual toggle */
 
 /* Enhanced scrollbar styling */
 ::-webkit-scrollbar {

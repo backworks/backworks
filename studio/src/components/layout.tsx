@@ -1,12 +1,56 @@
-import { component$, Slot, useSignal, $ } from '@builder.io/qwik';
+import { component$, Slot, useSignal, $, useVisibleTask$ } from '@builder.io/qwik';
 
 export const DashboardLayout = component$(() => {
   const isDarkMode = useSignal(false);
   const isSidebarCollapsed = useSignal(false);
 
+  // Initialize theme from localStorage or system preference
+  // eslint-disable-next-line qwik/no-use-visible-task
+  useVisibleTask$(() => {
+    const savedTheme = localStorage.getItem('theme');
+    const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    
+    // Force override system preference if user has explicitly set a theme
+    if (savedTheme === 'dark') {
+      isDarkMode.value = true;
+      document.documentElement.classList.add('dark');
+      document.documentElement.style.colorScheme = 'dark';
+    } else if (savedTheme === 'light') {
+      isDarkMode.value = false;
+      document.documentElement.classList.remove('dark');
+      document.documentElement.style.colorScheme = 'light';
+    } else {
+      // No saved preference, use system preference
+      if (systemPrefersDark) {
+        isDarkMode.value = true;
+        document.documentElement.classList.add('dark');
+        document.documentElement.style.colorScheme = 'dark';
+      } else {
+        isDarkMode.value = false;
+        document.documentElement.classList.remove('dark');
+        document.documentElement.style.colorScheme = 'light';
+      }
+    }
+  });
+
   const toggleTheme = $(() => {
-    isDarkMode.value = !isDarkMode.value;
-    document.documentElement.classList.toggle('dark', isDarkMode.value);
+    try {
+      isDarkMode.value = !isDarkMode.value;
+      
+      if (isDarkMode.value) {
+        // Switch to dark mode
+        document.documentElement.classList.add('dark');
+        document.documentElement.style.colorScheme = 'dark';
+        localStorage.setItem('theme', 'dark');
+      } else {
+        // Switch to light mode
+        document.documentElement.classList.remove('dark');
+        document.documentElement.style.colorScheme = 'light';
+        localStorage.setItem('theme', 'light');
+      }
+    } catch (error) {
+      console.error('Error toggling theme:', error);
+    }
   });
 
   const toggleSidebar = $(() => {
@@ -14,7 +58,7 @@ export const DashboardLayout = component$(() => {
   });
 
   return (
-    <div class={`min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 ${isDarkMode.value ? 'dark' : ''}`}>
+    <div class="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 transition-colors duration-300">
       {/* Sidebar */}
       <div class={`fixed inset-y-0 left-0 z-50 bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl shadow-2xl border-r border-gray-200/50 dark:border-gray-700/50 transition-all duration-300 ${isSidebarCollapsed.value ? 'w-16' : 'w-72'}`}>
         {/* Header */}
@@ -149,15 +193,16 @@ export const DashboardLayout = component$(() => {
             {/* Theme toggle */}
             <button 
               onClick$={toggleTheme}
-              class="p-2 rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white transition-colors"
+              class="p-2 rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white transition-all duration-200 transform hover:scale-105"
+              title={isDarkMode.value ? "Switch to light mode" : "Switch to dark mode"}
             >
               {isDarkMode.value ? (
-                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                <svg class="h-5 w-5 text-yellow-500" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
                 </svg>
               ) : (
-                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                <svg class="h-5 w-5 text-blue-600" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
                 </svg>
               )}
             </button>

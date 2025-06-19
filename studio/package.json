@@ -1,6 +1,6 @@
 {
-  "name": "backworks-studio",
-  "description": "Backworks Studio - Visual dashboard and designer for the declarative backend platform",
+  "name": "studio",
+  "description": "Studio - Visual dashboard and designer for the declarative backend platform",
   "version": "1.0.0",
   "engines": {
     "node": "^18.17.0 || ^20.3.0 || >=21.0.0"

@@ -48,15 +48,57 @@ export const ApiTester = component$(() => {
         requestOptions.body = body.value;
       }
 
-      // Make the request to the API server (port 3002)
-      const apiUrl = `http://localhost:3002${url.value}`;
-      const response = await fetch(apiUrl, requestOptions);
+      let response: Response;
+      let responseText: string;
+      
+      // Try to make request to actual backend first (port 3000 - the default Backworks port)
+      const apiUrl = `http://localhost:3000${url.value}`;
+      
+      try {
+        response = await fetch(apiUrl, requestOptions);
+        responseText = await response.text();
+      } catch (networkError) {
+        // If backend is not available, provide mock responses for demonstration
+        console.log('Backend not available, using mock response', networkError);
+        
+        const mockResponse = {
+          status: 200,
+          statusText: 'OK (Mock)',
+          headers: {
+            'content-type': 'application/json',
+            'x-mock-response': 'true',
+            'x-powered-by': 'Backworks Studio Demo'
+          },
+          body: JSON.stringify({
+            message: `${method.value} request to ${url.value}`,
+            timestamp: new Date().toISOString(),
+            data: method.value === 'POST' || method.value === 'PUT' ? 
+              (body.value ? JSON.parse(body.value || '{}') : null) : null,
+            mock: true,
+            note: "This is a mock response. Start your Backworks service to see real API responses."
+          }, null, 2)
+        };
+        
+        // Simulate network delay
+        await new Promise(resolve => setTimeout(resolve, 100 + Math.random() * 200));
+        
+        const endTime = Date.now();
+        const responseTime = endTime - startTime;
+
+        result.value = {
+          status: mockResponse.status,
+          statusText: mockResponse.statusText,
+          headers: mockResponse.headers,
+          body: mockResponse.body,
+          responseTime,
+          timestamp: new Date().toISOString()
+        };
+        
+        return;
+      }
       
       const endTime = Date.now();
       const responseTime = endTime - startTime;
-
-      // Get response body
-      const responseText = await response.text();
       
       // Get response headers
       const responseHeaders: Record<string, string> = {};
@@ -95,15 +137,57 @@ export const ApiTester = component$(() => {
     }
   };
 
+  const loadPreset = $((preset: { method: string; url: string; body?: string }) => {
+    method.value = preset.method;
+    url.value = preset.url;
+    body.value = preset.body || '';
+  });
+
   return (
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
       <div class="p-4 border-b border-gray-200 dark:border-gray-700">
-        <h3 class="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
-          <svg class="w-5 h-5 mr-2 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z" />
-          </svg>
-          API Tester
-        </h3>
+        <div class="flex items-center justify-between">
+          <h3 class="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
+            <svg class="w-5 h-5 mr-2 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z" />
+            </svg>
+            API Tester
+          </h3>
+          <div class="flex items-center space-x-2">
+            <div class="px-2 py-1 bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300 rounded-full text-xs font-medium">
+              Demo Mode
+            </div>
+          </div>
+        </div>
+        
+        {/* Quick Test Presets */}
+        <div class="mt-4">
+          <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">Quick Test Presets:</p>
+          <div class="flex flex-wrap gap-2">
+            <button
+              onClick$={() => loadPreset({ method: 'GET', url: '/api/hello' })}
+              class="px-3 py-1 text-xs bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 rounded-full hover:bg-green-200 dark:hover:bg-green-900/50 transition-colors"
+            >
+              GET /api/hello
+            </button>
+            <button
+              onClick$={() => loadPreset({ 
+                method: 'POST', 
+                url: '/api/users', 
+                body: JSON.stringify({ name: "John Doe", email: "john@example.com" }, null, 2)
+              })}
+              class="px-3 py-1 text-xs bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 rounded-full hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors"
+            >
+              POST /api/users
+            </button>
+            <button
+              onClick$={() => loadPreset({ method: 'GET', url: '/api/status' })}
+              class="px-3 py-1 text-xs bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300 rounded-full hover:bg-purple-200 dark:hover:bg-purple-900/50 transition-colors"
+            >
+              GET /api/status
+            </button>
+          </div>
+        </div>
       </div>
 
       <div class="p-4 space-y-4">
@@ -176,34 +260,7 @@ export const ApiTester = component$(() => {
         )}
 
         {/* Send Button */}
-        <div class="flex justify-between items-center">
-          <div class="flex space-x-2">
-            <button
-              type="button"
-              onClick$={() => {
-                url.value = '/hello';
-                method.value = 'GET';
-                headers.value = '{}';
-                body.value = '';
-              }}
-              class="px-3 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
-            >
-              Try /hello
-            </button>
-            <button
-              type="button"
-              onClick$={() => {
-                url.value = '/echo';
-                method.value = 'POST';
-                headers.value = '{"Content-Type": "application/json"}';
-                body.value = '{"message": "Hello World"}';
-              }}
-              class="px-3 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
-            >
-              Try /echo
-            </button>
-          </div>
-          
+        <div class="flex justify-end">          
           <button
             type="button"
             onClick$={makeRequest}
@@ -251,6 +308,20 @@ export const ApiTester = component$(() => {
         {/* Result Display */}
         {result.value && (
           <div class="border border-gray-200 dark:border-gray-600 rounded-lg">
+            {/* Mock Response Notice */}
+            {result.value.headers['x-mock-response'] && (
+              <div class="bg-yellow-50 dark:bg-yellow-900/20 px-4 py-3 border-b border-yellow-200 dark:border-yellow-700">
+                <div class="flex items-center">
+                  <svg class="w-4 h-4 text-yellow-600 dark:text-yellow-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span class="text-sm text-yellow-800 dark:text-yellow-300">
+                    This is a mock response for demonstration. Start your Backworks service to test real endpoints.
+                  </span>
+                </div>
+              </div>
+            )}
+            
             <div class="bg-gray-50 dark:bg-gray-700 px-4 py-3 border-b border-gray-200 dark:border-gray-600">
               <div class="flex items-center justify-between">
                 <div class="flex items-center space-x-3">

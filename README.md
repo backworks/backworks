@@ -51,14 +51,20 @@ git clone https://github.com/devstroop/backworks
 cd backworks
 cargo build --release
 
-# 2. Try an example schematic
+# 2. Build the Studio (web interface)
+cd studio
+npm install
+npm run build
+cd ..
+
+# 3. Try an example schematic
 cd examples/hello-world
 ../../target/release/backworks start --config blueprint.yaml
 
-# 3. Test the API
+# 4. Test the API
 curl http://localhost:3002/hello
 
-# 4. View dashboard
+# 5. View Studio dashboard
 open http://localhost:3003
 ```
 
@@ -68,8 +74,9 @@ open http://localhost:3003
 
 - **🎯 Declarative Design** - Service schematics become your backend
 - **⚡ Runtime Execution** - JavaScript handlers for business logic  
+- **🎨 Studio Interface** - Visual blueprint designer and API testing tools
 - **📊 Built-in Dashboard** - Real-time API monitoring and request logs
-- **🚀 Zero Dependencies** - Single Rust binary, runs anywhere
+- **🚀 Zero Dependencies** - Single Rust binary with integrated web interface
 - **🔄 Hot Reload** - Blueprint changes reflect immediately
 - **🛡️ Error Handling** - Robust error handling and status reporting
 

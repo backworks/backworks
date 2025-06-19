@@ -9,6 +9,7 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::path::{Path, PathBuf};
 use tokio::sync::{broadcast, RwLock};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -143,9 +144,57 @@ impl Dashboard {
     }
 }
 
+/// Find the studio directory by looking for it relative to the current working directory
+/// or relative to the executable location
+fn find_studio_path() -> BackworksResult<PathBuf> {
+    // Try current directory + studio first
+    let current_studio = Path::new("studio");
+    if current_studio.exists() && current_studio.join("dist").exists() {
+        return Ok(current_studio.to_path_buf());
+    }
+    
+    // Try parent directory + studio (for when running from examples/)
+    let parent_studio = Path::new("../studio");
+    if parent_studio.exists() && parent_studio.join("dist").exists() {
+        return Ok(parent_studio.to_path_buf());
+    }
+    
+    // Try two levels up + studio (for deeper nesting)
+    let grandparent_studio = Path::new("../../studio");
+    if grandparent_studio.exists() && grandparent_studio.join("dist").exists() {
+        return Ok(grandparent_studio.to_path_buf());
+    }
+    
+    // Try to find it relative to the executable
+    if let Ok(exe_path) = std::env::current_exe() {
+        if let Some(exe_dir) = exe_path.parent() {
+            // For cargo target/debug/backworks
+            let exe_studio = exe_dir.parent().unwrap_or(exe_dir).parent().unwrap_or(exe_dir).join("studio");
+            if exe_studio.exists() && exe_studio.join("dist").exists() {
+                return Ok(exe_studio);
+            }
+        }
+    }
+    
+    Err(BackworksError::Server("Studio directory not found. Please ensure the studio is built with 'cd studio && npm run build'".to_string()))
+}
+
 // Route handlers for the Qwik dashboard
 async fn serve_qwik_dashboard() -> Response {
-    match std::fs::read_to_string("dashboard/dist/index.html") {
+    let studio_path = match find_studio_path() {
+        Ok(path) => path,
+        Err(e) => {
+            tracing::error!("Failed to find studio directory: {}", e);
+            return axum::response::Response::builder()
+                .status(503)
+                .header("content-type", "text/html")
+                .body("<h1>Studio Unavailable</h1><p>Please build the studio first: <code>cd studio && npm run build</code></p>".into())
+                .unwrap();
+        }
+    };
+    
+    let index_path = studio_path.join("dist/index.html");
+    match std::fs::read_to_string(&index_path) {
         Ok(content) => {
             axum::response::Response::builder()
                 .header("content-type", "text/html")
@@ -153,11 +202,11 @@ async fn serve_qwik_dashboard() -> Response {
                 .unwrap()
         },
         Err(e) => {
-            tracing::error!("Failed to load Qwik dashboard: {}. Please run 'npm run build' in the dashboard directory.", e);
+            tracing::error!("Failed to load studio dashboard from {:?}: {}. Please run 'npm run build' in the studio directory.", index_path, e);
             axum::response::Response::builder()
                 .status(503)
                 .header("content-type", "text/html")
-                .body("<h1>Dashboard Unavailable</h1><p>Please build the dashboard first: <code>cd dashboard && npm run build</code></p>".into())
+                .body("<h1>Studio Unavailable</h1><p>Please build the studio first: <code>cd studio && npm run build</code></p>".into())
                 .unwrap()
         }
     }
@@ -221,8 +270,15 @@ async fn serve_static_files(
         return (StatusCode::NOT_FOUND, "File not found").into_response();
     }
     
-    // Map paths to dashboard/dist/ directory
-    let file_path = format!("dashboard/dist{}", path);
+    // Find studio path and map to dist directory
+    let studio_path = match find_studio_path() {
+        Ok(path) => path,
+        Err(_) => {
+            return (StatusCode::SERVICE_UNAVAILABLE, "Studio not available").into_response();
+        }
+    };
+    
+    let file_path = studio_path.join("dist").join(path.strip_prefix("/").unwrap_or(path));
     
     // Determine content type
     let content_type = match std::path::Path::new(&file_path)
