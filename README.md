@@ -2,7 +2,15 @@
 
 **The Configuration-Driven API Platform That Works Backwards**
 
-Backworks revolutionizes API development by working backwards from your needs. Start with a simple YAML configuration and seamlessly evolve from mock APIs to production-ready services with AI enhancement, visual monitoring, and multi-runtime support.
+Ba## 📖 Documentation
+
+- [📚 Documentation Index](./docs/README.md) - Central hub for all documentation
+- [🏗️ Architecture Overview](./docs/CONSOLIDATED_ARCHITECTURE.md) - Comprehensive architecture guide
+- [⚡ Quick Start Guide](./docs/quick-start.md) - Get started quickly
+- [📝 Configuration Reference](./docs/configuration.md) - Configuration options
+- [👩‍💻 Developer Guide](./docs/DEVELOPER_GUIDE.md) - Guide for developers
+- [🔧 Issue Tracker](./ISSUES.md) - Current issues and workstreams
+- [🗺️ Implementation Roadmap](./IMPLEMENTATION_ROADMAP.md) - Development phasesevolutionizes API development by working backwards from your needs. Start with a simple YAML configuration and seamlessly evolve from mock APIs to production-ready services with AI enhancement, visual monitoring, and multi-runtime support.
 
 ## ✨ What Makes Backworks Special?
 

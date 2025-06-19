@@ -6,10 +6,10 @@ This document serves as a centralized issue tracker for the Backworks API platfo
 
 ### Critical (Must Fix)
 
-- [ ] **BP-001**: Fix remaining integration tests in `capture_integration_tests.rs`
-  - Root cause: Include patterns in test are not matching all intended paths
+- [x] **BP-001**: Fix remaining integration tests in `capture_integration_tests.rs`
+  - Root cause: Include patterns in test were not matching all intended paths
   - Affected files: `src/capture.rs`, `tests/capture_integration_tests.rs`
-  - Progress: Partially fixed with glob logic improvements
+  - Resolution: Fixed glob pattern matching logic and path comparison in capture.rs
 
 - [ ] **BP-002**: Update binary target imports and configuration references
   - Root cause: Module imports in `main.rs` and binary components need updating

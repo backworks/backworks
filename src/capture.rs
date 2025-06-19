@@ -306,30 +306,58 @@ impl CaptureHandler {
         // Apply include/exclude filters
         if let Some(include_patterns) = &self.config.include_patterns {
             let matches = include_patterns.iter().any(|pattern| {
-                // Check for direct match (path is exact pattern without wildcard)
-                let base_pattern = pattern.trim_end_matches("/*");
-                path == base_pattern || 
-                // Check for prefix match (path starts with pattern base)
-                path.starts_with(&format!("{}/", base_pattern)) ||
-                // Use glob pattern matching
-                glob::Pattern::new(pattern).map(|p| p.matches(path)).unwrap_or(false)
+                if pattern.ends_with("*") {
+                    // Handle wildcard patterns
+                    let _base_pattern = pattern.trim_end_matches("*");
+                    
+                    // For paths ending with /* (directory wildcard)
+                    if pattern.ends_with("/*") {
+                        let dir_pattern = pattern.trim_end_matches("/*");
+                        return path == dir_pattern || path.starts_with(&format!("{}/", dir_pattern));
+                    }
+                    
+                    // For other wildcards, use glob matching
+                    return match glob::Pattern::new(pattern) {
+                        Ok(p) => p.matches(path),
+                        Err(_) => false,
+                    };
+                } else {
+                    // Exact match for patterns without wildcards
+                    path == *pattern
+                }
             });
+            
             if !matches {
+                tracing::debug!("Path '{}' doesn't match any include pattern", path);
                 return false;
             }
         }
         
         if let Some(exclude_patterns) = &self.config.exclude_patterns {
             let matches = exclude_patterns.iter().any(|pattern| {
-                // Check for direct match (path is exact pattern without wildcard)
-                let base_pattern = pattern.trim_end_matches("/*");
-                path == base_pattern ||
-                // Check for prefix match (path starts with pattern base)
-                path.starts_with(&format!("{}/", base_pattern)) ||
-                // Use glob pattern matching
-                glob::Pattern::new(pattern).map(|p| p.matches(path)).unwrap_or(false)
+                if pattern.ends_with("*") {
+                    // Handle wildcard patterns
+                    let _base_pattern = pattern.trim_end_matches("*");
+                    
+                    // For paths ending with /* (directory wildcard)
+                    if pattern.ends_with("/*") {
+                        let dir_pattern = pattern.trim_end_matches("/*");
+                        return path == dir_pattern || path.starts_with(&format!("{}/", dir_pattern));
+                    }
+                    
+                    // For other wildcards, use glob matching
+                    return match glob::Pattern::new(pattern) {
+                        Ok(p) => p.matches(path),
+                        Err(_) => false,
+                    };
+                } else {
+                    // Exact match for patterns without wildcards
+                    path == *pattern
+                }
             });
+            
             if matches {
+                tracing::debug!("Path '{}' matches an exclude pattern", path);
                 return false;
             }
         }
@@ -357,14 +385,27 @@ impl CaptureHandler {
                 // Filter by path patterns
                 if let Some(patterns) = &filter.path_patterns {
                     let matches = patterns.iter().any(|pattern| {
-                        // Check for direct match (path is exact pattern without wildcard)
-                        let base_pattern = pattern.trim_end_matches("*");
-                        request.path == base_pattern ||
-                        // Check for prefix match (path starts with pattern base)
-                        request.path.starts_with(&format!("{}/", base_pattern.trim_end_matches("/"))) ||
-                        // Use glob pattern matching
-                        glob::Pattern::new(pattern).map(|p| p.matches(&request.path)).unwrap_or(false)
+                        if pattern.ends_with("*") {
+                            // Handle wildcard patterns
+                            let _base_pattern = pattern.trim_end_matches("*");
+                            
+                            // For paths ending with /* (directory wildcard)
+                            if pattern.ends_with("/*") {
+                                let dir_pattern = pattern.trim_end_matches("/*");
+                                return request.path == dir_pattern || request.path.starts_with(&format!("{}/", dir_pattern));
+                            }
+                            
+                            // For other wildcards, use glob matching
+                            return match glob::Pattern::new(pattern) {
+                                Ok(p) => p.matches(&request.path),
+                                Err(_) => false,
+                            };
+                        } else {
+                            // Exact match for patterns without wildcards
+                            request.path == *pattern
+                        }
                     });
+                    
                     if !matches {
                         return false;
                     }

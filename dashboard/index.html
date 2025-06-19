@@ -210,6 +210,27 @@
             color: #888;
         }
 
+        .endpoints-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .endpoint-item {
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .endpoint-item:hover {
+            background-color: #222;
+        }
+
+        .endpoint-item.selected {
+            background-color: #2a2a2a;
+            border-left: 3px solid #667eea;
+        }
+
         .error {
             background: #cc0000;
             color: white;
@@ -217,14 +238,66 @@
             border-radius: 6px;
             margin: 10px 0;
         }
-
+        
+        .endpoint-filter input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.25);
+        }
+        
+        .endpoints-container {
+            transition: grid-template-columns 0.3s ease;
+        }
+        
+        .endpoint-tab {
+            transition: all 0.2s ease;
+        }
+        
+        .endpoint-tab:hover {
+            background-color: rgba(102, 126, 234, 0.1);
+        }
+        
+        button {
+            transition: all 0.2s ease;
+        }
+        
+        button:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+        
+        button:active {
+            transform: translateY(1px);
+        }
+        
+        .method-patch {
+            background: #9C27B0;
+        }
+        
+        .method-options {
+            background: #795548;
+        }
+        
+        .method-head {
+            background: #607D8B;
+        }
+        
         @keyframes pulse {
             0%, 100% { opacity: 1; }
             50% { opacity: 0.5; }
         }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
 
         .connecting {
             animation: pulse 2s infinite;
+        }
+        
+        .insights-list div:hover {
+            background-color: #222 !important;
         }
     </style>
 </head>
@@ -380,95 +453,1435 @@
                 return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i];
             };
 
-            const renderOverview = () => (
-                <div>
-                    <div className="metrics-grid">
-                        <div className="metric-card">
-                            <div className="metric-title">Total Requests</div>
-                            <div className="metric-value">{systemMetrics.total_requests || 0}</div>
+            const renderOverview = () => {
+                const chartContainerRef = useRef(null);
+                const [chartInstance, setChartInstance] = useState(null);
+                
+                useEffect(() => {
+                    if (chartContainerRef.current && metrics.length > 0) {
+                        // Clean up any existing chart
+                        if (chartInstance) {
+                            chartInstance.destroy();
+                        }
+                        
+                        // Get metrics for chart
+                        const labels = metrics.slice(0, 5).map(m => `${m.method} ${m.path}`);
+                        const responseTimeData = metrics.slice(0, 5).map(m => m.avg_response_time);
+                        const requestCountData = metrics.slice(0, 5).map(m => m.request_count);
+                        
+                        // Create new chart
+                        const ctx = chartContainerRef.current.getContext('2d');
+                        const newChart = new Chart(ctx, {
+                            type: 'bar',
+                            data: {
+                                labels: labels,
+                                datasets: [
+                                    {
+                                        label: 'Avg Response Time (ms)',
+                                        data: responseTimeData,
+                                        backgroundColor: 'rgba(102, 126, 234, 0.7)',
+                                        borderColor: 'rgba(102, 126, 234, 1)',
+                                        borderWidth: 1,
+                                        yAxisID: 'y'
+                                    },
+                                    {
+                                        label: 'Request Count',
+                                        data: requestCountData,
+                                        backgroundColor: 'rgba(118, 75, 162, 0.7)',
+                                        borderColor: 'rgba(118, 75, 162, 1)',
+                                        borderWidth: 1,
+                                        yAxisID: 'y1'
+                                    }
+                                ]
+                            },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                scales: {
+                                    y: {
+                                        type: 'linear',
+                                        position: 'left',
+                                        title: {
+                                            display: true,
+                                            text: 'Response Time (ms)',
+                                            color: '#888'
+                                        },
+                                        grid: {
+                                            color: 'rgba(255, 255, 255, 0.1)'
+                                        },
+                                        ticks: {
+                                            color: '#888'
+                                        }
+                                    },
+                                    y1: {
+                                        type: 'linear',
+                                        position: 'right',
+                                        title: {
+                                            display: true,
+                                            text: 'Request Count',
+                                            color: '#888'
+                                        },
+                                        grid: {
+                                            color: 'transparent'
+                                        },
+                                        ticks: {
+                                            color: '#888'
+                                        }
+                                    },
+                                    x: {
+                                        ticks: {
+                                            color: '#888',
+                                            maxRotation: 45,
+                                            minRotation: 45
+                                        },
+                                        grid: {
+                                            color: 'rgba(255, 255, 255, 0.1)'
+                                        }
+                                    }
+                                },
+                                plugins: {
+                                    legend: {
+                                        labels: {
+                                            color: '#888'
+                                        }
+                                    }
+                                }
+                            }
+                        });
+                        
+                        setChartInstance(newChart);
+                    }
+                    
+                    return () => {
+                        if (chartInstance) {
+                            chartInstance.destroy();
+                        }
+                    };
+                }, [metrics]);
+                
+                // Get today's date in a nice format
+                const today = new Date().toLocaleDateString('en-US', {
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                });
+                
+                return (
+                    <div>
+                        <div style={{ marginBottom: '20px' }}>
+                            <h2 style={{ fontSize: '24px', marginBottom: '10px' }}>Dashboard Overview</h2>
+                            <p style={{ color: '#888' }}>
+                                System status as of {today}
+                            </p>
                         </div>
-                        <div className="metric-card">
-                            <div className="metric-title">Active Endpoints</div>
-                            <div className="metric-value">{metrics.length}</div>
-                        </div>
-                        <div className="metric-card">
-                            <div className="metric-title">Error Rate</div>
-                            <div className="metric-value">
-                                {systemMetrics.total_requests > 0 
-                                    ? Math.round((systemMetrics.error_count / systemMetrics.total_requests) * 100 * 100) / 100
-                                    : 0}%
+                        
+                        <div className="metrics-grid">
+                            <div className="metric-card">
+                                <div className="metric-title">Total Requests</div>
+                                <div className="metric-value">{systemMetrics.total_requests || 0}</div>
+                                {systemMetrics.prev_total_requests && (
+                                    <div className={`metric-change ${systemMetrics.total_requests > systemMetrics.prev_total_requests ? 'positive' : 'negative'}`}>
+                                        {systemMetrics.total_requests > systemMetrics.prev_total_requests ? '↑' : '↓'} 
+                                        {Math.abs(systemMetrics.total_requests - systemMetrics.prev_total_requests)} from previous
+                                    </div>
+                                )}
+                            </div>
+                            <div className="metric-card">
+                                <div className="metric-title">Active Endpoints</div>
+                                <div className="metric-value">{metrics.length}</div>
+                            </div>
+                            <div className="metric-card">
+                                <div className="metric-title">Error Rate</div>
+                                <div className="metric-value">
+                                    {systemMetrics.total_requests > 0 
+                                        ? Math.round((systemMetrics.error_count / systemMetrics.total_requests) * 100 * 100) / 100
+                                        : 0}%
+                                </div>
+                            </div>
+                            <div className="metric-card">
+                                <div className="metric-title">Uptime</div>
+                                <div className="metric-value">{formatUptime(systemMetrics.uptime || 0)}</div>
+                            </div>
+                            <div className="metric-card">
+                                <div className="metric-title">Memory Usage</div>
+                                <div className="metric-value">{formatBytes(systemMetrics.memory_usage || 0)}</div>
+                                <div className="metric-progress" style={{ height: '4px', background: '#333', marginTop: '10px', borderRadius: '2px' }}>
+                                    <div style={{
+                                        height: '100%',
+                                        width: `${systemMetrics.memory_percent || 0}%`,
+                                        background: `${(systemMetrics.memory_percent || 0) > 80 ? '#ff4444' : '#667eea'}`,
+                                        borderRadius: '2px'
+                                    }}></div>
+                                </div>
+                            </div>
+                            <div className="metric-card">
+                                <div className="metric-title">CPU Usage</div>
+                                <div className="metric-value">{(systemMetrics.cpu_usage || 0).toFixed(1)}%</div>
+                                <div className="metric-progress" style={{ height: '4px', background: '#333', marginTop: '10px', borderRadius: '2px' }}>
+                                    <div style={{
+                                        height: '100%',
+                                        width: `${systemMetrics.cpu_usage || 0}%`,
+                                        background: `${(systemMetrics.cpu_usage || 0) > 80 ? '#ff4444' : '#00aa44'}`,
+                                        borderRadius: '2px'
+                                    }}></div>
+                                </div>
                             </div>
                         </div>
-                        <div className="metric-card">
-                            <div className="metric-title">Uptime</div>
-                            <div className="metric-value">{formatUptime(systemMetrics.uptime || 0)}</div>
-                        </div>
-                        <div className="metric-card">
-                            <div className="metric-title">Memory Usage</div>
-                            <div className="metric-value">{formatBytes(systemMetrics.memory_usage || 0)}</div>
-                        </div>
-                        <div className="metric-card">
-                            <div className="metric-title">CPU Usage</div>
-                            <div className="metric-value">{(systemMetrics.cpu_usage || 0).toFixed(1)}%</div>
-                        </div>
-                    </div>
 
-                    <div className="chart-container">
-                        <div className="chart-title">Endpoint Performance</div>
-                        <div className="endpoint-list">
-                            {metrics.length === 0 ? (
-                                <div className="loading">No endpoints active</div>
-                            ) : (
-                                metrics.map((metric, index) => (
-                                    <div key={index} className="endpoint-item">
-                                        <div style={{ display: 'flex', alignItems: 'center' }}>
-                                            <span className={`endpoint-method method-${metric.method.toLowerCase()}`}>
-                                                {metric.method}
-                                            </span>
-                                            <span className="endpoint-path">{metric.path}</span>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
+                            <div className="chart-container">
+                                <div className="chart-title">Top 5 Endpoints Performance</div>
+                                <div style={{ height: '300px', position: 'relative' }}>
+                                    {metrics.length === 0 ? (
+                                        <div className="loading">No endpoint data available</div>
+                                    ) : (
+                                        <canvas ref={chartContainerRef}></canvas>
+                                    )}
+                                </div>
+                            </div>
+                            
+                            <div className="chart-container">
+                                <div className="chart-title">System Status</div>
+                                <div style={{ 
+                                    padding: '20px',
+                                    height: '300px',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    justifyContent: 'space-between'
+                                }}>
+                                    <div>
+                                        <div style={{ 
+                                            display: 'flex', 
+                                            alignItems: 'center', 
+                                            marginBottom: '15px',
+                                            padding: '15px',
+                                            background: '#222',
+                                            borderRadius: '8px'
+                                        }}>
+                                            <div style={{ 
+                                                width: '12px', 
+                                                height: '12px', 
+                                                borderRadius: '50%',
+                                                backgroundColor: '#00aa44',
+                                                marginRight: '10px'
+                                            }}></div>
+                                            <div>
+                                                <div style={{ fontWeight: 'bold' }}>API Server</div>
+                                                <div style={{ fontSize: '13px', color: '#888' }}>Online - Processing requests</div>
+                                            </div>
+                                            <div style={{ marginLeft: 'auto', color: '#aaa', fontSize: '12px' }}>
+                                                {formatUptime(systemMetrics.uptime || 0)}
+                                            </div>
                                         </div>
-                                        <div className="endpoint-stats">
-                                            <span>{metric.request_count} requests</span>
-                                            <span>{Math.round(metric.avg_response_time)}ms avg</span>
-                                            <span>{Math.round(metric.error_rate * 100)}% errors</span>
+                                        
+                                        <div style={{ 
+                                            display: 'flex', 
+                                            alignItems: 'center',
+                                            marginBottom: '15px',
+                                            padding: '15px',
+                                            background: '#222',
+                                            borderRadius: '8px'
+                                        }}>
+                                            <div style={{ 
+                                                width: '12px', 
+                                                height: '12px', 
+                                                borderRadius: '50%',
+                                                backgroundColor: '#00aa44',
+                                                marginRight: '10px'
+                                            }}></div>
+                                            <div>
+                                                <div style={{ fontWeight: 'bold' }}>Dashboard</div>
+                                                <div style={{ fontSize: '13px', color: '#888' }}>Connected - Real-time metrics</div>
+                                            </div>
+                                            <div style={{ marginLeft: 'auto', color: '#aaa', fontSize: '12px' }}>
+                                                Active
+                                            </div>
+                                        </div>
+                                        
+                                        <div style={{ 
+                                            display: 'flex', 
+                                            alignItems: 'center',
+                                            padding: '15px',
+                                            background: '#222',
+                                            borderRadius: '8px'
+                                        }}>
+                                            <div style={{ 
+                                                width: '12px', 
+                                                height: '12px', 
+                                                borderRadius: '50%',
+                                                backgroundColor: systemMetrics.ai_enabled ? '#00aa44' : '#888',
+                                                marginRight: '10px'
+                                            }}></div>
+                                            <div>
+                                                <div style={{ fontWeight: 'bold' }}>AI Module</div>
+                                                <div style={{ fontSize: '13px', color: '#888' }}>
+                                                    {systemMetrics.ai_enabled ? 'Active - Analyzing traffic' : 'Disabled'}
+                                                </div>
+                                            </div>
+                                            <div style={{ marginLeft: 'auto', color: '#aaa', fontSize: '12px' }}>
+                                                {systemMetrics.ai_enabled ? 'Enabled' : 'Disabled'}
+                                            </div>
                                         </div>
                                     </div>
-                                ))
+                                    
+                                    <div style={{ marginTop: '15px', alignSelf: 'flex-end' }}>
+                                        <button style={{
+                                            background: 'none',
+                                            border: '1px solid #667eea',
+                                            color: '#667eea',
+                                            padding: '8px 15px',
+                                            borderRadius: '4px',
+                                            cursor: 'pointer'
+                                        }}>
+                                            View System Logs
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="chart-container">
+                            <div className="chart-title">Recent Endpoint Activity</div>
+                            <div className="endpoint-list">
+                                {metrics.length === 0 ? (
+                                    <div className="loading">No endpoints active</div>
+                                ) : (
+                                    metrics.map((metric, index) => (
+                                        <div key={index} className="endpoint-item">
+                                            <div style={{ display: 'flex', alignItems: 'center' }}>
+                                                <span className={`endpoint-method method-${metric.method.toLowerCase()}`}>
+                                                    {metric.method}
+                                                </span>
+                                                <span className="endpoint-path">{metric.path}</span>
+                                            </div>
+                                            <div className="endpoint-stats">
+                                                <span>{metric.request_count} requests</span>
+                                                <span>{Math.round(metric.avg_response_time)}ms avg</span>
+                                                <span>{Math.round(metric.error_rate * 100)}% errors</span>
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                );
+            };
+
+            const renderEndpoints = () => {
+                const [selectedEndpoint, setSelectedEndpoint] = useState(null);
+                const [endpointFilter, setEndpointFilter] = useState('');
+                const [activeTab, setActiveTab] = useState('overview');
+                const [mockEnabled, setMockEnabled] = useState(false);
+                const [rateLimit, setRateLimit] = useState(100);
+                const [cacheTtl, setCacheTtl] = useState(60);
+                const endpointChartRef = useRef(null);
+                const [endpointChartInstance, setEndpointChartInstance] = useState(null);
+                
+                // Mocking some response time history data
+                const generateMockTimeData = () => {
+                    const now = new Date();
+                    return [...Array(24).keys()].map(i => {
+                        const time = new Date(now);
+                        time.setHours(now.getHours() - (24 - i));
+                        return {
+                            time: time.toISOString(),
+                            responseTime: Math.floor(Math.random() * 200) + 50,
+                            success: Math.random() > 0.1
+                        };
+                    });
+                };
+                
+                const [responseHistory] = useState(generateMockTimeData());
+                
+                useEffect(() => {
+                    if (selectedEndpoint && activeTab === 'performance' && endpointChartRef.current) {
+                        if (endpointChartInstance) {
+                            endpointChartInstance.destroy();
+                        }
+                        
+                        const ctx = endpointChartRef.current.getContext('2d');
+                        const timeLabels = responseHistory.map(d => {
+                            const date = new Date(d.time);
+                            return `${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}`;
+                        });
+                        
+                        const responseData = responseHistory.map(d => d.responseTime);
+                        const successData = responseHistory.map(d => d.success ? 1 : 0);
+                        
+                        const newChart = new Chart(ctx, {
+                            type: 'line',
+                            data: {
+                                labels: timeLabels,
+                                datasets: [
+                                    {
+                                        label: 'Response Time (ms)',
+                                        data: responseData,
+                                        backgroundColor: 'rgba(102, 126, 234, 0.2)',
+                                        borderColor: 'rgba(102, 126, 234, 1)',
+                                        borderWidth: 2,
+                                        tension: 0.2,
+                                        pointRadius: 3,
+                                        yAxisID: 'y'
+                                    },
+                                    {
+                                        label: 'Success Status',
+                                        data: successData,
+                                        backgroundColor: 'rgba(0, 200, 83, 0.2)',
+                                        borderColor: 'rgba(0, 200, 83, 1)',
+                                        borderWidth: 2,
+                                        yAxisID: 'y1',
+                                        stepped: true
+                                    }
+                                ]
+                            },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                scales: {
+                                    y: {
+                                        type: 'linear',
+                                        position: 'left',
+                                        title: {
+                                            display: true,
+                                            text: 'Response Time (ms)',
+                                            color: '#888'
+                                        },
+                                        grid: {
+                                            color: 'rgba(255, 255, 255, 0.1)'
+                                        },
+                                        ticks: {
+                                            color: '#888'
+                                        }
+                                    },
+                                    y1: {
+                                        type: 'linear',
+                                        position: 'right',
+                                        title: {
+                                            display: true,
+                                            text: 'Success Status',
+                                            color: '#888'
+                                        },
+                                        min: 0,
+                                        max: 1,
+                                        grid: {
+                                            color: 'transparent'
+                                        },
+                                        ticks: {
+                                            color: '#888',
+                                            stepSize: 1,
+                                            callback: value => value === 1 ? 'Success' : 'Error'
+                                        }
+                                    },
+                                    x: {
+                                        ticks: {
+                                            color: '#888'
+                                        },
+                                        grid: {
+                                            color: 'rgba(255, 255, 255, 0.1)'
+                                        }
+                                    }
+                                },
+                                plugins: {
+                                    legend: {
+                                        labels: {
+                                            color: '#888'
+                                        }
+                                    },
+                                    tooltip: {
+                                        callbacks: {
+                                            label: function(context) {
+                                                if (context.datasetIndex === 1) {
+                                                    return context.raw === 1 ? 'Success' : 'Error';
+                                                }
+                                                return `Response time: ${context.raw} ms`;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        });
+                        
+                        setEndpointChartInstance(newChart);
+                    }
+                    
+                    return () => {
+                        if (endpointChartInstance) {
+                            endpointChartInstance.destroy();
+                        }
+                    };
+                }, [selectedEndpoint, activeTab]);
+                
+                const filteredEndpoints = metrics.filter(endpoint => 
+                    endpoint.path.toLowerCase().includes(endpointFilter.toLowerCase()) || 
+                    endpoint.method.toLowerCase().includes(endpointFilter.toLowerCase())
+                );
+                
+                const handleEndpointClick = (endpoint) => {
+                    setSelectedEndpoint(endpoint);
+                    setActiveTab('overview');
+                    setRateLimit(100);
+                    setCacheTtl(60);
+                };
+                
+                const handleSaveConfig = () => {
+                    // This would normally save to the backend
+                    alert(`Configuration saved for ${selectedEndpoint.method} ${selectedEndpoint.path}`);
+                };
+                
+                const handleToggleMock = () => {
+                    setMockEnabled(!mockEnabled);
+                    // In a real implementation, this would tell the backend to start/stop mocking
+                };
+                
+                const renderTabContent = () => {
+                    switch (activeTab) {
+                        case 'overview':
+                            return (
+                                <>
+                                    <div style={{ 
+                                        display: 'grid', 
+                                        gridTemplateColumns: 'repeat(3, 1fr)', 
+                                        gap: '20px',
+                                        marginBottom: '20px'
+                                    }}>
+                                        <div className="metric-card" style={{ margin: 0 }}>
+                                            <div className="metric-title">Requests</div>
+                                            <div className="metric-value">{selectedEndpoint.request_count}</div>
+                                        </div>
+                                        <div className="metric-card" style={{ margin: 0 }}>
+                                            <div className="metric-title">Avg Response Time</div>
+                                            <div className="metric-value">{Math.round(selectedEndpoint.avg_response_time)} ms</div>
+                                        </div>
+                                        <div className="metric-card" style={{ margin: 0 }}>
+                                            <div className="metric-title">Error Rate</div>
+                                            <div className="metric-value">{Math.round(selectedEndpoint.error_rate * 100)}%</div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div style={{ marginTop: '20px' }}>
+                                        <h3 style={{ marginBottom: '10px', color: '#bbb' }}>Quick Actions</h3>
+                                        <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+                                            <button 
+                                                style={{
+                                                    padding: '8px 16px',
+                                                    borderRadius: '6px',
+                                                    background: mockEnabled ? '#cc0000' : '#444',
+                                                    border: 'none',
+                                                    color: '#fff',
+                                                    cursor: 'pointer'
+                                                }}
+                                                onClick={handleToggleMock}
+                                            >
+                                                {mockEnabled ? 'Disable Mock' : 'Enable Mock'}
+                                            </button>
+                                            
+                                            <button 
+                                                style={{
+                                                    padding: '8px 16px',
+                                                    borderRadius: '6px',
+                                                    background: '#007bff',
+                                                    border: 'none',
+                                                    color: '#fff',
+                                                    cursor: 'pointer'
+                                                }}
+                                                onClick={() => window.open(`/test/${selectedEndpoint.path}`, '_blank')}
+                                            >
+                                                Test Endpoint
+                                            </button>
+                                        </div>
+                                    </div>
+                                    
+                                    <div style={{ marginTop: '20px' }}>
+                                        <h3 style={{ marginBottom: '10px', color: '#bbb' }}>Endpoint Information</h3>
+                                        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                            <tbody>
+                                                <tr style={{ borderBottom: '1px solid #333' }}>
+                                                    <td style={{ padding: '8px 0', color: '#888' }}>Path</td>
+                                                    <td style={{ padding: '8px 0', fontFamily: 'monospace' }}>{selectedEndpoint.path}</td>
+                                                </tr>
+                                                <tr style={{ borderBottom: '1px solid #333' }}>
+                                                    <td style={{ padding: '8px 0', color: '#888' }}>Method</td>
+                                                    <td style={{ padding: '8px 0' }}>
+                                                        <span className={`endpoint-method method-${selectedEndpoint.method.toLowerCase()}`}>
+                                                            {selectedEndpoint.method}
+                                                        </span>
+                                                    </td>
+                                                </tr>
+                                                <tr style={{ borderBottom: '1px solid #333' }}>
+                                                    <td style={{ padding: '8px 0', color: '#888' }}>Last Request</td>
+                                                    <td style={{ padding: '8px 0' }}>{new Date(selectedEndpoint.last_request).toLocaleString()}</td>
+                                                </tr>
+                                                <tr style={{ borderBottom: '1px solid #333' }}>
+                                                    <td style={{ padding: '8px 0', color: '#888' }}>Status</td>
+                                                    <td style={{ padding: '8px 0' }}>
+                                                        <span style={{ 
+                                                            display: 'inline-block', 
+                                                            width: '10px', 
+                                                            height: '10px', 
+                                                            borderRadius: '50%', 
+                                                            background: selectedEndpoint.error_rate < 0.05 ? '#00cc44' : '#cc0000',
+                                                            marginRight: '8px'
+                                                        }}></span>
+                                                        {selectedEndpoint.error_rate < 0.05 ? 'Healthy' : 'Issues Detected'}
+                                                    </td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </>
+                            );
+                        
+                        case 'performance':
+                            return (
+                                <>
+                                    <div style={{ height: '300px', marginBottom: '20px' }}>
+                                        <canvas ref={endpointChartRef}></canvas>
+                                    </div>
+                                    
+                                    <div style={{ marginTop: '20px' }}>
+                                        <h3 style={{ marginBottom: '10px', color: '#bbb' }}>Performance Metrics</h3>
+                                        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                            <thead>
+                                                <tr style={{ borderBottom: '1px solid #333' }}>
+                                                    <th style={{ padding: '8px 0', textAlign: 'left', color: '#888' }}>Time</th>
+                                                    <th style={{ padding: '8px 0', textAlign: 'left', color: '#888' }}>Status</th>
+                                                    <th style={{ padding: '8px 0', textAlign: 'left', color: '#888' }}>Response Time</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {responseHistory.slice(-5).reverse().map((entry, i) => (
+                                                    <tr key={i} style={{ borderBottom: '1px solid #333' }}>
+                                                        <td style={{ padding: '8px 0' }}>{new Date(entry.time).toLocaleTimeString()}</td>
+                                                        <td style={{ padding: '8px 0' }}>
+                                                            <span style={{ 
+                                                                color: entry.success ? '#00cc44' : '#cc0000',
+                                                                fontWeight: 'bold'
+                                                            }}>
+                                                                {entry.success ? 'SUCCESS' : 'ERROR'}
+                                                            </span>
+                                                        </td>
+                                                        <td style={{ padding: '8px 0' }}>{entry.responseTime} ms</td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </>
+                            );
+                        
+                        case 'config':
+                            return (
+                                <>
+                                    <div style={{ marginBottom: '20px' }}>
+                                        <h3 style={{ marginBottom: '15px', color: '#bbb' }}>Endpoint Configuration</h3>
+                                        
+                                        <div style={{ marginBottom: '15px' }}>
+                                            <label style={{ display: 'block', marginBottom: '5px', color: '#888' }}>
+                                                Rate Limit (requests per minute)
+                                            </label>
+                                            <input
+                                                type="number"
+                                                min="1"
+                                                max="1000"
+                                                value={rateLimit}
+                                                onChange={(e) => setRateLimit(parseInt(e.target.value))}
+                                                style={{
+                                                    background: '#2a2a2a',
+                                                    border: '1px solid #444',
+                                                    padding: '8px 12px',
+                                                    borderRadius: '6px',
+                                                    color: '#fff',
+                                                    width: '100%'
+                                                }}
+                                            />
+                                        </div>
+                                        
+                                        <div style={{ marginBottom: '15px' }}>
+                                            <label style={{ display: 'block', marginBottom: '5px', color: '#888' }}>
+                                                Cache TTL (seconds)
+                                            </label>
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                max="3600"
+                                                value={cacheTtl}
+                                                onChange={(e) => setCacheTtl(parseInt(e.target.value))}
+                                                style={{
+                                                    background: '#2a2a2a',
+                                                    border: '1px solid #444',
+                                                    padding: '8px 12px',
+                                                    borderRadius: '6px',
+                                                    color: '#fff',
+                                                    width: '100%'
+                                                }}
+                                            />
+                                        </div>
+                                        
+                                        <div style={{ marginTop: '10px' }}>
+                                            <label style={{ display: 'flex', alignItems: 'center', color: '#888', cursor: 'pointer', marginBottom: '15px' }}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={mockEnabled}
+                                                    onChange={handleToggleMock}
+                                                    style={{ marginRight: '10px' }}
+                                                />
+                                                Enable Mock Response
+                                            </label>
+                                        </div>
+                                        
+                                        {mockEnabled && (
+                                            <div style={{ marginBottom: '15px' }}>
+                                                <label style={{ display: 'block', marginBottom: '5px', color: '#888' }}>
+                                                    Mock Response JSON
+                                                </label>
+                                                <textarea
+                                                    defaultValue={`{\n  "status": "success",\n  "data": {\n    "id": 12345,\n    "name": "Example",\n    "timestamp": "${new Date().toISOString()}"\n  }\n}`}
+                                                    rows="8"
+                                                    style={{
+                                                        background: '#2a2a2a',
+                                                        border: '1px solid #444',
+                                                        padding: '8px 12px',
+                                                        borderRadius: '6px',
+                                                        color: '#fff',
+                                                        width: '100%',
+                                                        fontFamily: 'monospace'
+                                                    }}
+                                                ></textarea>
+                                            </div>
+                                        )}
+                                        
+                                        <button
+                                            onClick={handleSaveConfig}
+                                            style={{
+                                                padding: '8px 16px',
+                                                borderRadius: '6px',
+                                                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                                                border: 'none',
+                                                color: '#fff',
+                                                cursor: 'pointer',
+                                                marginTop: '15px'
+                                            }}
+                                        >
+                                            Save Configuration
+                                        </button>
+                                    </div>
+                                </>
+                            );
+                            
+                        default:
+                            return <div>Tab content not available</div>;
+                    }
+                };
+                
+                return (
+                    <div>
+                        <div className="endpoints-header">
+                            <div className="chart-title">API Endpoints</div>
+                            <div className="endpoint-filter">
+                                <input 
+                                    type="text" 
+                                    placeholder="Filter endpoints..." 
+                                    value={endpointFilter}
+                                    onChange={(e) => setEndpointFilter(e.target.value)}
+                                    style={{
+                                        background: '#2a2a2a',
+                                        border: '1px solid #444',
+                                        padding: '8px 12px',
+                                        borderRadius: '6px',
+                                        color: '#fff',
+                                        width: '250px',
+                                    }}
+                                />
+                            </div>
+                        </div>
+                        
+                        <div className="endpoints-container" style={{ display: 'grid', gridTemplateColumns: selectedEndpoint ? '1fr 2fr' : '1fr', gap: '20px' }}>
+                            <div className="endpoint-list-container">
+                                <div className="endpoint-list" style={{ maxHeight: '750px', overflowY: 'auto' }}>
+                                    {filteredEndpoints.length === 0 ? (
+                                        <div className="loading">No endpoints matching filter</div>
+                                    ) : (
+                                        filteredEndpoints.map((endpoint, index) => (
+                                            <div 
+                                                key={index} 
+                                                className={`endpoint-item ${selectedEndpoint && selectedEndpoint.path === endpoint.path && selectedEndpoint.method === endpoint.method ? 'selected' : ''}`}
+                                                onClick={() => handleEndpointClick(endpoint)}
+                                            >
+                                                <div style={{ display: 'flex', alignItems: 'center' }}>
+                                                    <span className={`endpoint-method method-${endpoint.method.toLowerCase()}`}>
+                                                        {endpoint.method}
+                                                    </span>
+                                                    <span className="endpoint-path">{endpoint.path}</span>
+                                                </div>
+                                                <div className="endpoint-stats">
+                                                    <span>{endpoint.request_count} req</span>
+                                                    <span>{Math.round(endpoint.avg_response_time)}ms</span>
+                                                    <span style={{ color: endpoint.error_rate > 0.05 ? '#ff4444' : '#888' }}>
+                                                        {Math.round(endpoint.error_rate * 100)}% error
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+                            </div>
+                            
+                            {selectedEndpoint && (
+                                <div className="endpoint-details" style={{ 
+                                    background: '#1a1a1a', 
+                                    borderRadius: '12px', 
+                                    border: '1px solid #333',
+                                    padding: '20px'
+                                }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                                        <div>
+                                            <h2 style={{ marginBottom: '10px' }}>
+                                                <span className={`endpoint-method method-${selectedEndpoint.method.toLowerCase()}`} style={{ marginRight: '10px' }}>
+                                                    {selectedEndpoint.method}
+                                                </span>
+                                                <span style={{ fontSize: '1.2em', fontFamily: 'monospace' }}>
+                                                    {selectedEndpoint.path}
+                                                </span>
+                                            </h2>
+                                            <div style={{ fontSize: '0.9em', color: '#888' }}>
+                                                Last request: {new Date(selectedEndpoint.last_request).toLocaleTimeString()}
+                                            </div>
+                                        </div>
+                                        <button 
+                                            onClick={() => setSelectedEndpoint(null)}
+                                            style={{
+                                                background: 'none',
+                                                border: 'none',
+                                                color: '#888',
+                                                fontSize: '1.5em',
+                                                cursor: 'pointer'
+                                            }}
+                                        >×</button>
+                                    </div>
+                                    
+                                    <div style={{ display: 'flex', borderBottom: '1px solid #333', marginBottom: '20px' }}>
+                                        <div 
+                                            className={activeTab === 'overview' ? 'active' : ''}
+                                            onClick={() => setActiveTab('overview')}
+                                            style={{ 
+                                                padding: '10px 20px', 
+                                                cursor: 'pointer',
+                                                borderBottom: activeTab === 'overview' ? '2px solid #667eea' : 'none',
+                                                color: activeTab === 'overview' ? '#fff' : '#888'
+                                            }}
+                                        >
+                                            Overview
+                                        </div>
+                                        <div 
+                                            className={activeTab === 'performance' ? 'active' : ''}
+                                            onClick={() => setActiveTab('performance')}
+                                            style={{ 
+                                                padding: '10px 20px', 
+                                                cursor: 'pointer',
+                                                borderBottom: activeTab === 'performance' ? '2px solid #667eea' : 'none',
+                                                color: activeTab === 'performance' ? '#fff' : '#888'
+                                            }}
+                                        >
+                                            Performance
+                                        </div>
+                                        <div 
+                                            className={activeTab === 'config' ? 'active' : ''}
+                                            onClick={() => setActiveTab('config')}
+                                            style={{ 
+                                                padding: '10px 20px', 
+                                                cursor: 'pointer',
+                                                borderBottom: activeTab === 'config' ? '2px solid #667eea' : 'none',
+                                                color: activeTab === 'config' ? '#fff' : '#888'
+                                            }}
+                                        >
+                                            Configuration
+                                        </div>
+                                    </div>
+                                    
+                                    {renderTabContent()}
+                                </div>
                             )}
                         </div>
                     </div>
-                </div>
-            );
+                );
+            };
 
-            const renderArchitecture = () => (
-                <div>
-                    <div className="chart-container">
-                        <div className="chart-title">System Architecture</div>
-                        <div className="architecture-view">
-                            {architecture.nodes.length === 0 ? (
-                                <div className="loading">No architecture data available</div>
-                            ) : (
-                                <div style={{ padding: '20px' }}>
-                                    <div>Nodes: {architecture.nodes.length}</div>
-                                    <div>Edges: {architecture.edges.length}</div>
-                                    <div style={{ marginTop: '20px' }}>
-                                        {architecture.nodes.map(node => (
-                                            <div key={node.id} style={{ 
-                                                margin: '10px', 
-                                                padding: '10px', 
-                                                border: '1px solid #444',
-                                                borderRadius: '6px'
-                                            }}>
-                                                <strong>{node.label}</strong> ({node.node_type})
+            const renderAIInsights = () => {
+                const [selectedInsight, setSelectedInsight] = useState(null);
+                const [loading, setLoading] = useState(false);
+                
+                // Mock insights data
+                const insights = [
+                    {
+                        id: 1,
+                        title: "API Usage Patterns",
+                        description: "Analysis of endpoint usage patterns and potential optimizations.",
+                        severity: "info",
+                        created: new Date(Date.now() - 3600000).toISOString()
+                    },
+                    {
+                        id: 2,
+                        title: "Potential Performance Bottleneck",
+                        description: "The /api/users endpoint shows increasing response times during peak hours.",
+                        severity: "warning",
+                        created: new Date(Date.now() - 86400000).toISOString()
+                    },
+                    {
+                        id: 3,
+                        title: "Error Rate Spike",
+                        description: "Detected an increase in error rates for POST /api/orders in the last 24 hours.",
+                        severity: "critical",
+                        created: new Date(Date.now() - 43200000).toISOString()
+                    },
+                    {
+                        id: 4,
+                        title: "Caching Recommendation",
+                        description: "Enable caching for GET /api/products to reduce database load and improve response times.",
+                        severity: "suggestion",
+                        created: new Date(Date.now() - 172800000).toISOString()
+                    },
+                    {
+                        id: 5,
+                        title: "Architecture Improvement",
+                        description: "Consider implementing rate limiting for authentication endpoints to prevent brute force attacks.",
+                        severity: "suggestion",
+                        created: new Date(Date.now() - 259200000).toISOString()
+                    }
+                ];
+                
+                const severityColors = {
+                    info: "#3498db",
+                    warning: "#f39c12",
+                    critical: "#e74c3c",
+                    suggestion: "#2ecc71"
+                };
+                
+                const handleGenerateInsights = () => {
+                    setLoading(true);
+                    
+                    // Simulate API call
+                    setTimeout(() => {
+                        setLoading(false);
+                        alert("New AI insights generated based on recent system activity.");
+                    }, 2000);
+                };
+                
+                return (
+                    <div>
+                        <div className="endpoints-header">
+                            <div className="chart-title">AI-Powered Insights</div>
+                            <button
+                                onClick={handleGenerateInsights}
+                                style={{
+                                    padding: '8px 16px',
+                                    borderRadius: '6px',
+                                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                                    border: 'none',
+                                    color: '#fff',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px'
+                                }}
+                                disabled={loading}
+                            >
+                                {loading ? (
+                                    <>
+                                        <span className="connecting" style={{
+                                            display: 'inline-block',
+                                            width: '16px',
+                                            height: '16px',
+                                            borderRadius: '50%',
+                                            border: '2px solid rgba(255,255,255,0.3)',
+                                            borderTopColor: '#fff',
+                                            animation: 'spin 1s linear infinite'
+                                        }}></span>
+                                        Processing...
+                                    </>
+                                ) : (
+                                    <>
+                                        <span style={{ fontSize: '1.2em' }}>🤖</span>
+                                        Generate New Insights
+                                    </>
+                                )}
+                            </button>
+                        </div>
+                        
+                        <div style={{ display: 'grid', gridTemplateColumns: selectedInsight ? '1fr 2fr' : '1fr', gap: '20px' }}>
+                            <div className="insights-list" style={{ 
+                                background: '#1a1a1a',
+                                borderRadius: '12px',
+                                border: '1px solid #333',
+                                overflow: 'hidden'
+                            }}>
+                                {insights.map((insight) => (
+                                    <div 
+                                        key={insight.id}
+                                        onClick={() => setSelectedInsight(insight)}
+                                        style={{
+                                            padding: '16px 20px',
+                                            borderBottom: '1px solid #333',
+                                            cursor: 'pointer',
+                                            background: selectedInsight?.id === insight.id ? '#2a2a2a' : 'transparent',
+                                            borderLeft: selectedInsight?.id === insight.id ? `3px solid ${severityColors[insight.severity]}` : '3px solid transparent',
+                                            transition: 'all 0.2s ease'
+                                        }}
+                                    >
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center' }}>
+                                                <span style={{ 
+                                                    width: '10px', 
+                                                    height: '10px', 
+                                                    borderRadius: '50%', 
+                                                    background: severityColors[insight.severity],
+                                                    display: 'inline-block',
+                                                    marginRight: '8px'
+                                                }}></span>
+                                                <span style={{ fontWeight: 'bold' }}>{insight.title}</span>
                                             </div>
-                                        ))}
+                                            <span style={{ fontSize: '0.85em', color: '#888' }}>
+                                                {new Date(insight.created).toLocaleDateString()}
+                                            </span>
+                                        </div>
+                                        <div style={{ color: '#bbb', fontSize: '0.9em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                            {insight.description}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                            
+                            {selectedInsight && (
+                                <div style={{
+                                    background: '#1a1a1a',
+                                    borderRadius: '12px',
+                                    border: '1px solid #333',
+                                    padding: '20px'
+                                }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                                        <div>
+                                            <h2 style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                <span style={{ 
+                                                    width: '12px', 
+                                                    height: '12px', 
+                                                    borderRadius: '50%', 
+                                                    background: severityColors[selectedInsight.severity],
+                                                    display: 'inline-block'
+                                                }}></span>
+                                                {selectedInsight.title}
+                                            </h2>
+                                            <div style={{ color: '#888', marginTop: '5px' }}>
+                                                Generated on {new Date(selectedInsight.created).toLocaleString()}
+                                            </div>
+                                        </div>
+                                        <span style={{ 
+                                            padding: '5px 10px', 
+                                            borderRadius: '12px', 
+                                            background: `${severityColors[selectedInsight.severity]}22`, 
+                                            color: severityColors[selectedInsight.severity],
+                                            textTransform: 'uppercase',
+                                            fontWeight: 'bold',
+                                            fontSize: '0.8em'
+                                        }}>
+                                            {selectedInsight.severity}
+                                        </span>
+                                    </div>
+                                    
+                                    <div style={{ marginBottom: '20px', lineHeight: '1.6', color: '#ddd' }}>
+                                        <p>{selectedInsight.description}</p>
+                                        
+                                        {selectedInsight.severity === "warning" && (
+                                            <>
+                                                <h3 style={{ marginTop: '20px', marginBottom: '10px', color: '#bbb' }}>Analysis</h3>
+                                                <p>The /api/users endpoint is experiencing increased response times, especially during peak hours (10:00 AM - 2:00 PM). Average response time has increased from 85ms to 320ms during these hours.</p>
+                                                
+                                                <div style={{ height: '200px', margin: '20px 0' }}>
+                                                    <canvas></canvas>
+                                                </div>
+                                                
+                                                <h3 style={{ marginTop: '20px', marginBottom: '10px', color: '#bbb' }}>Recommendations</h3>
+                                                <ul style={{ paddingLeft: '20px' }}>
+                                                    <li>Implement pagination to reduce the payload size</li>
+                                                    <li>Add index on frequently queried fields</li>
+                                                    <li>Consider caching results with a TTL of 60 seconds</li>
+                                                </ul>
+                                            </>
+                                        )}
+                                        
+                                        {selectedInsight.severity === "critical" && (
+                                            <>
+                                                <h3 style={{ marginTop: '20px', marginBottom: '10px', color: '#bbb' }}>Error Details</h3>
+                                                <p>Error rate increased from 0.5% to 12.8% in the last 24 hours. Most common error is HTTP 500 with "Database connection timeout" message.</p>
+                                                
+                                                <div style={{ marginTop: '20px', background: '#151515', padding: '15px', borderRadius: '8px', fontFamily: 'monospace', fontSize: '0.9em' }}>
+                                                    <pre style={{ margin: 0, whiteSpace: 'pre-wrap' }}>
+                                                        {`Error: Database connection timeout
+at PostgresClient.connect (db.js:143:23)
+at OrderController.createOrder (controllers/orders.js:28:12)
+at async Router.post (routes/api.js:56:18)`}
+                                                    </pre>
+                                                </div>
+                                                
+                                                <h3 style={{ marginTop: '20px', marginBottom: '10px', color: '#bbb' }}>Immediate Actions</h3>
+                                                <ul style={{ paddingLeft: '20px' }}>
+                                                    <li>Check database connection pool settings</li>
+                                                    <li>Verify database server load and resources</li>
+                                                    <li>Implement retry logic with exponential backoff</li>
+                                                    <li>Add circuit breaker to prevent cascading failures</li>
+                                                </ul>
+                                            </>
+                                        )}
+                                        
+                                        {selectedInsight.severity === "suggestion" && (
+                                            <>
+                                                <h3 style={{ marginTop: '20px', marginBottom: '10px', color: '#bbb' }}>Benefits</h3>
+                                                <ul style={{ paddingLeft: '20px' }}>
+                                                    <li>Reduce database load by up to 45%</li>
+                                                    <li>Improve average response time by 70%</li>
+                                                    <li>Better user experience due to faster load times</li>
+                                                </ul>
+                                                
+                                                <h3 style={{ marginTop: '20px', marginBottom: '10px', color: '#bbb' }}>Implementation</h3>
+                                                
+                                                <div style={{ marginTop: '20px', background: '#151515', padding: '15px', borderRadius: '8px', fontFamily: 'monospace', fontSize: '0.9em' }}>
+                                                    <pre style={{ margin: 0, whiteSpace: 'pre-wrap' }}>
+                                                        {`// Add the following configuration to enable caching
+{
+  "path": "/api/products",
+  "method": "GET",
+  "cache": {
+    "enabled": true,
+    "ttl": 300,
+    "max_size": 1000,
+    "vary_by": ["query", "user_role"]
+  }
+}`}
+                                                    </pre>
+                                                </div>
+                                            </>
+                                        )}
+                                    </div>
+                                    
+                                    <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
+                                        {selectedInsight.severity === "critical" && (
+                                            <button style={{
+                                                padding: '8px 16px',
+                                                borderRadius: '6px',
+                                                background: '#e74c3c',
+                                                border: 'none',
+                                                color: '#fff',
+                                                cursor: 'pointer'
+                                            }}>
+                                                Fix Immediately
+                                            </button>
+                                        )}
+                                        
+                                        {selectedInsight.severity === "suggestion" && (
+                                            <button style={{
+                                                padding: '8px 16px',
+                                                borderRadius: '6px',
+                                                background: '#2ecc71',
+                                                border: 'none',
+                                                color: '#fff',
+                                                cursor: 'pointer'
+                                            }}>
+                                                Apply Suggestion
+                                            </button>
+                                        )}
+                                        
+                                        <button style={{
+                                            padding: '8px 16px',
+                                            borderRadius: '6px',
+                                            background: 'rgba(255,255,255,0.1)',
+                                            border: '1px solid #444',
+                                            color: '#fff',
+                                            cursor: 'pointer'
+                                        }}>
+                                            Ignore
+                                        </button>
                                     </div>
                                 </div>
                             )}
                         </div>
                     </div>
-                </div>
-            );
+                );
+            };
+            
+            const renderArchitecture = () => {
+                const [selectedNode, setSelectedNode] = useState(null);
+                
+                const nodeColors = {
+                    endpoint: '#667eea',
+                    database: '#00aa44',
+                    service: '#ff8800',
+                    external: '#cc0000',
+                    runtime: '#0066cc',
+                    default: '#9966cc'
+                };
+                
+                const getNodeColor = (nodeType) => {
+                    return nodeColors[nodeType] || nodeColors.default;
+                };
+                
+                const nodeElements = architecture.nodes.map(node => ({
+                    id: node.id,
+                    type: 'default',
+                    data: { label: node.label, nodeType: node.node_type },
+                    position: node.position || { x: 0, y: 0 },
+                    style: {
+                        background: getNodeColor(node.node_type),
+                        color: 'white',
+                        border: '1px solid #555',
+                        borderRadius: '6px',
+                        padding: '10px 15px',
+                        width: 'auto',
+                    }
+                }));
+                
+                const edgeElements = architecture.edges.map(edge => ({
+                    id: edge.id,
+                    source: edge.source,
+                    target: edge.target,
+                    animated: edge.type === 'data_flow',
+                    style: { stroke: '#aaa' }
+                }));
+                
+                const elements = [...nodeElements, ...edgeElements];
+                
+                const handleNodeClick = (node) => {
+                    const selectedNodeData = architecture.nodes.find(n => n.id === node.id);
+                    if (selectedNodeData) {
+                        setSelectedNode(selectedNodeData);
+                    }
+                };
+                
+                return (
+                    <div>
+                        <div className="chart-container" style={{ marginBottom: '20px' }}>
+                            <div className="chart-title">System Architecture</div>
+                            <div className="architecture-view">
+                                {architecture.nodes.length === 0 ? (
+                                    <div className="loading">No architecture data available</div>
+                                ) : (
+                                    <div style={{ padding: '20px' }}>
+                                        <div style={{ 
+                                            display: 'flex', 
+                                            marginBottom: '20px',
+                                            padding: '15px',
+                                            background: '#222',
+                                            borderRadius: '8px',
+                                            flexWrap: 'wrap',
+                                            gap: '10px'
+                                        }}>
+                                            {Object.entries(nodeColors).map(([type, color]) => (
+                                                <div key={type} style={{ 
+                                                    display: 'flex', 
+                                                    alignItems: 'center',
+                                                    marginRight: '15px' 
+                                                }}>
+                                                    <div style={{ 
+                                                        width: '12px', 
+                                                        height: '12px', 
+                                                        background: color,
+                                                        marginRight: '6px',
+                                                        borderRadius: '3px'
+                                                    }}></div>
+                                                    <span style={{ textTransform: 'capitalize' }}>{type}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                        
+                                        <div style={{ 
+                                            display: 'grid',
+                                            gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+                                            gap: '15px'
+                                        }}>
+                                            {architecture.nodes.map(node => (
+                                                <div 
+                                                    key={node.id} 
+                                                    style={{ 
+                                                        padding: '15px',
+                                                        border: '1px solid #444',
+                                                        borderRadius: '8px',
+                                                        borderLeft: `4px solid ${getNodeColor(node.node_type)}`,
+                                                        backgroundColor: selectedNode && selectedNode.id === node.id ? '#222' : '#1a1a1a',
+                                                        cursor: 'pointer'
+                                                    }}
+                                                    onClick={() => setSelectedNode(node)}
+                                                >
+                                                    <div style={{ 
+                                                        display: 'flex', 
+                                                        justifyContent: 'space-between', 
+                                                        alignItems: 'center',
+                                                        marginBottom: '8px'
+                                                    }}>
+                                                        <strong style={{ fontSize: '16px' }}>{node.label}</strong>
+                                                        <span style={{ 
+                                                            fontSize: '12px', 
+                                                            textTransform: 'uppercase',
+                                                            backgroundColor: getNodeColor(node.node_type),
+                                                            color: 'white',
+                                                            padding: '3px 6px',
+                                                            borderRadius: '4px'
+                                                        }}>
+                                                            {node.node_type}
+                                                        </span>
+                                                    </div>
+                                                    
+                                                    <div style={{ fontSize: '14px', color: '#bbb' }}>
+                                                        {node.description || `${node.node_type} component`}
+                                                    </div>
+                                                    
+                                                    <div style={{ 
+                                                        marginTop: '10px',
+                                                        fontSize: '13px',
+                                                        color: '#888' 
+                                                    }}>
+                                                        Connections: {architecture.edges.filter(
+                                                            e => e.source === node.id || e.target === node.id
+                                                        ).length}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                        
+                        {selectedNode && (
+                            <div className="chart-container">
+                                <div className="chart-title">
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <span>Node Details: {selectedNode.label}</span>
+                                        <button 
+                                            onClick={() => setSelectedNode(null)}
+                                            style={{
+                                                background: 'none',
+                                                border: 'none',
+                                                color: '#888',
+                                                fontSize: '1.5em',
+                                                cursor: 'pointer'
+                                            }}
+                                        >×</button>
+                                    </div>
+                                </div>
+                                
+                                <div style={{ padding: '20px' }}>
+                                    <div style={{ 
+                                        display: 'grid',
+                                        gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                                        gap: '15px',
+                                        marginBottom: '20px'
+                                    }}>
+                                        <div className="metric-card" style={{ margin: 0 }}>
+                                            <div className="metric-title">Type</div>
+                                            <div className="metric-value" style={{ 
+                                                color: getNodeColor(selectedNode.node_type),
+                                                textTransform: 'capitalize'
+                                            }}>
+                                                {selectedNode.node_type}
+                                            </div>
+                                        </div>
+                                        
+                                        <div className="metric-card" style={{ margin: 0 }}>
+                                            <div className="metric-title">Status</div>
+                                            <div className="metric-value" style={{ 
+                                                color: selectedNode.status === 'active' ? '#00aa44' : '#cc0000',
+                                            }}>
+                                                {selectedNode.status || 'Active'}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div style={{ 
+                                        background: '#151515',
+                                        border: '1px solid #333',
+                                        borderRadius: '8px',
+                                        padding: '15px',
+                                        marginBottom: '20px'
+                                    }}>
+                                        <h3 style={{ marginBottom: '10px', color: '#bbb' }}>Connected Components</h3>
+                                        <div>
+                                            {architecture.edges
+                                                .filter(e => e.source === selectedNode.id || e.target === selectedNode.id)
+                                                .map((edge, index) => {
+                                                    const connectedNodeId = edge.source === selectedNode.id ? edge.target : edge.source;
+                                                    const connectedNode = architecture.nodes.find(n => n.id === connectedNodeId);
+                                                    const isOutgoing = edge.source === selectedNode.id;
+                                                    
+                                                    if (!connectedNode) return null;
+                                                    
+                                                    return (
+                                                        <div key={index} style={{ 
+                                                            padding: '10px 0',
+                                                            borderBottom: index < architecture.edges.length - 1 ? '1px solid #333' : 'none',
+                                                            display: 'flex',
+                                                            alignItems: 'center'
+                                                        }}>
+                                                            {isOutgoing ? '→ ' : '← '}
+                                                            <span style={{ 
+                                                                display: 'inline-block',
+                                                                width: '10px',
+                                                                height: '10px',
+                                                                backgroundColor: getNodeColor(connectedNode.node_type),
+                                                                marginRight: '8px',
+                                                                borderRadius: '50%'
+                                                            }}></span>
+                                                            <span style={{ fontWeight: 500 }}>{connectedNode.label}</span>
+                                                            <span style={{ 
+                                                                marginLeft: '8px', 
+                                                                color: '#888',
+                                                                fontSize: '13px'
+                                                            }}>
+                                                                ({connectedNode.node_type})
+                                                            </span>
+                                                            <span style={{ 
+                                                                marginLeft: 'auto', 
+                                                                fontSize: '13px',
+                                                                color: '#666'
+                                                            }}>
+                                                                {edge.type || 'connection'}
+                                                            </span>
+                                                        </div>
+                                                    );
+                                                })}
+                                                
+                                            {architecture.edges.filter(e => 
+                                                e.source === selectedNode.id || e.target === selectedNode.id
+                                            ).length === 0 && (
+                                                <div style={{ color: '#888', padding: '10px 0' }}>
+                                                    No connections found
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                    
+                                    {selectedNode.config && (
+                                        <div style={{ marginTop: '20px' }}>
+                                            <h3 style={{ marginBottom: '10px', color: '#bbb' }}>Configuration</h3>
+                                            <div style={{ 
+                                                background: '#151515', 
+                                                border: '1px solid #333',
+                                                borderRadius: '8px',
+                                                padding: '12px',
+                                                fontFamily: 'monospace',
+                                                fontSize: '14px',
+                                                color: '#aaa',
+                                                maxHeight: '200px',
+                                                overflow: 'auto'
+                                            }}>
+                                                {JSON.stringify(selectedNode.config, null, 2)}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                );
+            };
 
             return (
                 <div className="dashboard">
@@ -511,11 +1924,9 @@
                         {error && <div className="error">{error}</div>}
                         
                         {activeTab === 'overview' && renderOverview()}
-                        {activeTab === 'endpoints' && renderOverview()}
+                        {activeTab === 'endpoints' && renderEndpoints()}
                         {activeTab === 'architecture' && renderArchitecture()}
-                        {activeTab === 'ai' && (
-                            <div className="loading">AI insights coming soon...</div>
-                        )}
+                        {activeTab === 'ai' && renderAIInsights()}
                     </div>
                 </div>
             );
