@@ -8,18 +8,18 @@
 ## 📋 **What Backworks IS (Current)**
 
 ### **Core Identity**
-- **YAML-Driven Backend Creator** - Transform configuration into working APIs
+- **Declarative Backend Platform** - Transform service schematics into working APIs
 - **Not a Proxy** - Backworks IS your backend
 - **Integrated Solution** - API + Dashboard in one process
 - **Developer-First** - Simple, fast, joyful experience
 
 ### **How It Works**
 ```
-1. Write YAML config → 2. Run backworks → 3. Get working API + Dashboard
+1. Write service schematic → 2. Run backworks → 3. Get working API + Dashboard
 ```
 
 ### **Current Features**
-- ✅ YAML configuration parsing
+- ✅ Service schematic parsing
 - ✅ Runtime mode with JavaScript handlers  
 - ✅ HTTP API server
 - ✅ Built-in dashboard (simplified HTML/JS)

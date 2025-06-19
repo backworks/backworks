@@ -1,6 +1,6 @@
 # 🎮 Backworks Examples
 
-This directory contains practical examples showing how to use Backworks to create APIs with YAML configuration.
+This directory contains practical examples showing how to use Backworks to create APIs with service schematics.
 
 ## 📁 Available Examples
 
@@ -26,7 +26,7 @@ cargo build --release
 cd examples/hello-world
 
 # Run the example
-../../target/release/backworks start --config api.yaml
+../../target/release/backworks start --config blueprint.yaml
 
 # Test the API
 curl http://localhost:3002/hello

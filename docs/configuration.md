@@ -1,14 +1,14 @@
-# 📝 Configuration Reference
+# 📝 Schematic Reference
 
-Complete reference for Backworks YAML configuration files.
+Complete reference for Backworks service schematic files (`blueprint.yaml`).
 
-## 🎯 Basic Structure
+## 🎯 Basic Schematic Structure
 
 ```yaml
 # Required fields
-name: "string"                    # API name (required)
-description: "string"             # API description (optional)
-version: "string"                 # API version (optional)
+name: "string"                    # Service name (required)
+description: "string"             # Service description (optional)
+version: "string"                 # Service version (optional)
 
 # Server configuration
 server:

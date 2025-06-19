@@ -1,10 +1,10 @@
 # 🌟 Hello World API
 
-The simplest possible Backworks example - pure YAML → working API.
+The simplest possible Backworks example - service schematic → working API.
 
 ## 🎯 What This Does
 
-**YAML Configuration** → **Working Backend API**
+**Service Schematic** → **Working Backend API**
 
 This creates two endpoints:
 - `GET /hello` - Returns a greeting with timestamp
@@ -14,7 +14,7 @@ This creates two endpoints:
 
 ```bash
 # From the hello-world directory
-backworks start --config api.yaml
+backworks start
 ```
 
 ## 🧪 Test It
@@ -44,4 +44,4 @@ Visit http://localhost:3003 to see:
 - **endpoints** - Define your API structure and behavior
 - **No external dependencies** - Backworks IS your backend
 
-This example shows how a simple YAML file becomes a fully functional API server!
+This example shows how a simple service schematic becomes a fully functional API server!

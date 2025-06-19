@@ -1,11 +1,11 @@
-# 🚀 Backworks: YAML-Driven Backend API Platform
+# 🚀 Backworks: Declarative Backend Platform
 
 ## 🎯 **Core Concept**
 
-**Backworks transforms YAML configuration into working backend APIs.**
+**Backworks transforms service schematics into working backend APIs.**
 
 ```yaml
-# You write this YAML
+# You write this service schematic (blueprint.yaml)
 endpoints:
   users:
     path: "/users"
@@ -26,7 +26,7 @@ curl http://localhost:3000/users
 ## 📋 **What Backworks Does**
 
 ### ✅ **Current Core Features**
-- **YAML → API Endpoints** - Define endpoints, get working HTTP API
+- **Schematics → API Endpoints** - Define endpoints, get working HTTP API
 - **Runtime Execution** - JavaScript handlers execute your business logic
 - **Real-time Dashboard** - Monitor API usage, performance, and metrics
 - **Integrated Server** - One command starts API + Dashboard

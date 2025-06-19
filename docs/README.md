@@ -1,13 +1,13 @@
 # 📚 Backworks Documentation
 
-Simple, focused documentation for the **YAML → Backend API** platform.
+Simple, focused documentation for the **Declarative backend** platform.
 
 ## 🚀 Getting Started
 
 | Document | Description |
 |----------|-------------|
 | [⚡ Quick Start](quick-start.md) | Get running in 5 minutes |
-| [📝 Configuration](configuration.md) | YAML configuration reference |
+| [📝 Schematic Reference](configuration.md) | YAML configuration reference |
 
 ## 📖 Learn by Example
 
@@ -29,4 +29,4 @@ For deeper technical understanding:
 
 ---
 
-**Remember:** Backworks transforms YAML configuration into working backend APIs with JavaScript runtime handlers.
+**Remember:** Backworks transforms service schematics into working backend APIs with JavaScript runtime handlers.

@@ -1,15 +1,15 @@
 # 🚀 Backworks
 
-**Configuration-driven backend platform that transforms YAML into working APIs.**
+**Declarative backend platform that transforms service schematics into working APIs.**
 
 ## 🎯 **What is Backworks?**
 
-Backworks turns simple YAML configuration files into fully functional backend APIs with built-in monitoring.
+Backworks turns simple service schematics into fully functional backend APIs with built-in monitoring.
 
-**YAML → Working API + Dashboard**
+**Schematic → Working API + Dashboard**
 
 ```yaml
-# Write this YAML configuration
+# Write this service schematic (blueprint.yaml)
 name: "My API"
 mode: "runtime"
 server:
@@ -34,7 +34,7 @@ endpoints:
 
 ```bash
 # Get this working API
-backworks start --config api.yaml
+backworks start --config blueprint.yaml
 curl http://localhost:3000/users
 # → {"users": ["John", "Jane"]}
 ```
@@ -51,9 +51,9 @@ git clone https://github.com/devstroop/backworks
 cd backworks
 cargo build --release
 
-# 2. Try an example
+# 2. Try an example schematic
 cd examples/hello-world
-../../target/release/backworks start --config api.yaml
+../../target/release/backworks start --config blueprint.yaml
 
 # 3. Test the API
 curl http://localhost:3002/hello
@@ -66,34 +66,34 @@ open http://localhost:3003
 
 ## 📋 **Core Features**
 
-- **🎯 YAML-Driven** - Configuration becomes your backend
+- **🎯 Declarative Design** - Service schematics become your backend
 - **⚡ Runtime Execution** - JavaScript handlers for business logic  
 - **📊 Built-in Dashboard** - Real-time API monitoring and request logs
 - **🚀 Zero Dependencies** - Single Rust binary, runs anywhere
-- **🔄 Hot Reload** - Configuration changes reflect immediately
+- **🔄 Hot Reload** - Blueprint changes reflect immediately
 - **🛡️ Error Handling** - Robust error handling and status reporting
 
 ---
 
-## 🎮 **Examples**
+## 🎮 **Blueprint Templates**
 
-| Example | Description | Complexity |
+| Template | Description | Complexity |
 |---------|-------------|------------|
 | [`hello-world`](./examples/hello-world/) | Simplest possible API | ⭐ |
 | [`blog-api`](./examples/blog-api/) | Blog with posts & comments | ⭐⭐⭐ |
 | [`task-manager`](./examples/task-manager/) | Complete business app | ⭐⭐⭐⭐ |
 
-Each example shows the **YAML → API** transformation in action.
+Each template shows the **Service Schematic → API** transformation in action.
 
 ---
 
 ## 🏗️ **Architecture**
 
 ```
-YAML Config → Backworks Engine → HTTP API + Dashboard
+Service Schematic (Blueprint) → Backworks Engine → HTTP API + Dashboard
 ```
 
-- **Configuration-First** - Your YAML defines everything
+- **Declarative-First** - Your service design defines everything
 - **Runtime Handlers** - JavaScript for custom business logic
 - **Integrated Monitoring** - Dashboard shows real-time metrics and logs
 - **Simple Deployment** - One process, two ports (API + Dashboard)
@@ -107,7 +107,7 @@ YAML Config → Backworks Engine → HTTP API + Dashboard
 ## 📖 **Documentation**
 
 - **[Quick Start Guide](./docs/quick-start.md)** - Get running in 5 minutes
-- **[Configuration Reference](./docs/configuration.md)** - Complete YAML options  
+- **[Schematic Reference](./docs/configuration.md)** - Complete YAML options  
 - **[Examples Guide](./examples/README.md)** - Learn from examples
 - **[Architecture Overview](./ARCHITECTURE.md)** - Design principles
 
@@ -126,7 +126,7 @@ cargo build --release
 
 ### **Run an Example**
 ```bash
-./target/release/backworks start --config examples/hello-world/api.yaml
+./target/release/backworks start --config examples/hello-world/blueprint.yaml
 ```
 
 ---

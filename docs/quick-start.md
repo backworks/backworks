@@ -15,8 +15,8 @@ The binary will be available at `./target/release/backworks`
 
 ## 🎯 Your First API in 2 Minutes
 
-### 1. Create Configuration
-Create a `my-api.yaml` file:
+### 1. Create Service Schematic
+Create a `blueprint.yaml` file:
 
 ```yaml
 name: "My First API"
@@ -107,13 +107,13 @@ endpoints:
 
 ### 2. Start Your API
 ```bash
-./target/release/backworks start --config my-api.yaml
+./target/release/backworks start --config blueprint.yaml
 ```
 
 You should see output like:
 ```
-🚀 Starting Backworks...
-✅ Configuration loaded: My First API
+🚀 Starting Backworks... 
+✅ Service schematic loaded: My First API
 ✅ Backworks engine initialized
 🌐 API server running on http://0.0.0.0:3000
 📊 Dashboard available at http://0.0.0.0:3001

@@ -4,26 +4,26 @@ Complete guide for developers to understand, contribute to, and extend Backworks
 
 ## 🎯 Project Overview
 
-Backworks is a **configuration-driven API platform** that transforms YAML files into working backend APIs with built-in monitoring. The project prioritizes simplicity, developer experience, and rapid prototyping.
+Backworks is a **declarative backend platform** that transforms service schematics into working backend APIs with built-in monitoring. The project prioritizes simplicity, developer experience, and rapid prototyping.
 
 ### Core Philosophy
 - **Configuration over Code** - Simple APIs need zero coding
-- **Backend as YAML** - Your config IS your backend
+- **Backend as Schema** - Your schematic IS your backend
 - **Developer Joy** - From idea to working API in under 5 minutes
 
 ## 🏗️ Architecture Overview
 
 ```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   YAML Config   │───▶│ Backworks Engine│───▶│  HTTP API +     │
-│                 │    │                 │    │   Dashboard     │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
+┌─────────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│ Service Schematic   │───▶│ Backworks Engine│───▶│  HTTP API +     │
+│   (blueprint.yaml)  │    │                 │    │   Dashboard     │
+└─────────────────────┘    └─────────────────┘    └─────────────────┘
 ```
 
 ### Core Components
 
-1. **Configuration Parser** (`src/config.rs`)
-   - Parses and validates YAML configuration
+1. **Schematic Parser** (`src/config.rs`)
+   - Parses and validates service schematics
    - Defines endpoint structure and validation rules
 
 2. **Runtime Engine** (`src/runtime.rs`)
