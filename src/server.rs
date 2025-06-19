@@ -22,6 +22,7 @@ use crate::database::DatabaseManager;
 use crate::runtime::RuntimeManager;
 use crate::proxy::ProxyHandler;
 use crate::plugin::PluginManager;
+use crate::dashboard::Dashboard;
 use crate::error::{BackworksError, Result};
 
 #[derive(Clone)]
@@ -30,6 +31,7 @@ pub struct AppState {
     pub plugin_manager: PluginManager,
     pub database_manager: Option<DatabaseManager>,
     pub runtime_manager: RuntimeManager,
+    pub dashboard: Option<Arc<Dashboard>>,
 }
 
 pub struct BackworksServer {
@@ -41,6 +43,7 @@ impl BackworksServer {
         config: Arc<BackworksConfig>,
         database_manager: Option<DatabaseManager>,
         plugin_manager: PluginManager,
+        dashboard: Option<Arc<Dashboard>>,
     ) -> Result<Self> {
         // Initialize runtime manager
         let runtime_config = crate::runtime::RuntimeManagerConfig::default();
@@ -51,6 +54,7 @@ impl BackworksServer {
             plugin_manager,
             database_manager,
             runtime_manager,
+            dashboard,
         };
         
         Ok(Self { state })
@@ -217,6 +221,9 @@ async fn handle_endpoint_request(
 ) -> axum::response::Result<(StatusCode, Json<Value>)> {
     debug!("Handling {} request to endpoint: {}", method, endpoint_name);
     
+    // Record request start time for dashboard metrics
+    let start_time = std::time::Instant::now();
+    
     let endpoint_config = match state.config.endpoints.get(&endpoint_name) {
         Some(config) => config,
         None => {
@@ -296,10 +303,30 @@ async fn handle_endpoint_request(
             // Parse the JSON string response to a Value for proper JSON response
             let json_value: serde_json::Value = serde_json::from_str(&response)
                 .unwrap_or_else(|_| serde_json::json!({"response": response}));
+            
+            // Record successful request to dashboard
+            let response_time = start_time.elapsed().as_millis() as f64;
+            if let Some(ref dashboard) = state.dashboard {
+                let path = format!("/{}", endpoint_name);
+                if let Err(e) = dashboard.record_request(&method, &path, response_time, 200).await {
+                    error!("Failed to record request to dashboard: {}", e);
+                }
+            }
+            
             Ok((StatusCode::OK, Json(json_value)))
         },
         Err(e) => {
             error!("Request handling error: {}", e);
+            
+            // Record failed request to dashboard
+            let response_time = start_time.elapsed().as_millis() as f64;
+            if let Some(ref dashboard) = state.dashboard {
+                let path = format!("/{}", endpoint_name);
+                if let Err(dashboard_err) = dashboard.record_request(&method, &path, response_time, 500).await {
+                    error!("Failed to record failed request to dashboard: {}", dashboard_err);
+                }
+            }
+            
             Ok((
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(serde_json::json!({"error": e.to_string()}))
@@ -309,23 +336,47 @@ async fn handle_endpoint_request(
 }
 
 // Health check endpoint
-async fn health_check() -> Json<Value> {
-    Json(serde_json::json!({
+async fn health_check(State(state): State<AppState>) -> Json<Value> {
+    let start_time = std::time::Instant::now();
+    
+    let response = Json(serde_json::json!({
         "status": "healthy",
         "timestamp": chrono::Utc::now(),
         "version": env!("CARGO_PKG_VERSION")
-    }))
+    }));
+    
+    // Record health check request to dashboard
+    let response_time = start_time.elapsed().as_millis() as f64;
+    if let Some(ref dashboard) = state.dashboard {
+        if let Err(e) = dashboard.record_request("GET", "/health", response_time, 200).await {
+            error!("Failed to record health check to dashboard: {}", e);
+        }
+    }
+    
+    response
 }
 
 // Metrics endpoint
-async fn metrics_handler() -> String {
+async fn metrics_handler(State(state): State<AppState>) -> String {
+    let start_time = std::time::Instant::now();
+    
     // Simulate metrics collection
-    format!(
+    let response = format!(
         "# HELP backworks_requests_total Total number of requests\n\
          # TYPE backworks_requests_total counter\n\
          backworks_requests_total {}\n",
         42 // Simulated request count
-    )
+    );
+    
+    // Record metrics request to dashboard
+    let response_time = start_time.elapsed().as_millis() as f64;
+    if let Some(ref dashboard) = state.dashboard {
+        if let Err(e) = dashboard.record_request("GET", "/metrics", response_time, 200).await {
+            error!("Failed to record metrics request to dashboard: {}", e);
+        }
+    }
+    
+    response
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

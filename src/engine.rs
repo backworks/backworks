@@ -15,7 +15,7 @@ use crate::error::Result;
 pub struct BackworksEngine {
     config: Arc<BackworksConfig>,
     server: BackworksServer,
-    dashboard: Option<Dashboard>,
+    dashboard: Option<Arc<Dashboard>>,
     database_manager: Option<DatabaseManager>,
     runtime_manager: RuntimeManager,
     plugin_manager: PluginManager,
@@ -80,7 +80,7 @@ impl BackworksEngine {
         let dashboard = if let Some(ref dashboard_config) = &config.dashboard {
             if dashboard_config.enabled {
                 info!("🎨 Initializing dashboard on port {}...", dashboard_config.port);
-                Some(Dashboard::new(dashboard_config.clone()))
+                Some(Arc::new(Dashboard::new(dashboard_config.clone())))
             } else {
                 None
             }
@@ -94,6 +94,7 @@ impl BackworksEngine {
             config.clone(),
             database_manager.clone(),
             plugin_manager.clone(),
+            dashboard.clone(),
         )?;
         
         Ok(Self {
@@ -113,7 +114,7 @@ impl BackworksEngine {
         self.print_startup_info();
         
         // Start dashboard if enabled
-        let dashboard_handle = if let Some(dashboard) = self.dashboard {
+        let dashboard_handle = if let Some(dashboard) = self.dashboard.clone() {
             Some(tokio::spawn(async move {
                 if let Err(e) = dashboard.start().await {
                     error!("Dashboard error: {}", e);

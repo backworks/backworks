@@ -1,8 +1,8 @@
 use crate::config::DashboardConfig;
-use crate::error::BackworksResult;
+use crate::error::{BackworksResult, BackworksError};
 use axum::{
     extract::{ws::WebSocket, ws::Message, WebSocketUpgrade},
-    response::{Html, Response},
+    response::{Html, Response, IntoResponse},
     routing::{get, Router},
     Json,
 };
@@ -114,6 +114,7 @@ impl Dashboard {
 
         Router::new()
             .route("/", get(serve_dashboard))
+            .route("/dashboard", get(serve_full_dashboard))
             .route("/api/metrics", get(get_metrics))
             .route("/api/system", get(get_system_metrics))
             .route("/api/architecture", get(get_architecture))
@@ -127,6 +128,19 @@ impl Dashboard {
         // Start background tasks
         self.start_metrics_collector().await;
         self.start_architecture_updater().await;
+        
+        // Create and start the dashboard HTTP server
+        let app = self.router();
+        
+        let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{}", self.config.port))
+            .await
+            .map_err(|e| BackworksError::Config(format!("Failed to bind dashboard to port {}: {}", self.config.port, e)))?;
+            
+        tracing::info!("Dashboard server listening on http://0.0.0.0:{}", self.config.port);
+        
+        axum::serve(listener, app)
+            .await
+            .map_err(|e| BackworksError::Config(format!("Dashboard server error: {}", e)))?;
         
         Ok(())
     }
@@ -275,8 +289,84 @@ struct DashboardState {
     event_sender: broadcast::Sender<DashboardEvent>,
 }
 
-async fn serve_dashboard() -> Html<&'static str> {
-    Html(include_str!("../dashboard/index.html"))
+async fn serve_full_dashboard() -> Response {
+    // Try to serve the full dashboard HTML file
+    match std::fs::read_to_string("dashboard/index.html") {
+        Ok(content) => {
+            axum::response::Response::builder()
+                .header("content-type", "text/html")
+                .body(content.into())
+                .unwrap()
+        },
+        Err(_) => {
+            // Try alternative path
+            match std::fs::read_to_string("../dashboard/index.html") {
+                Ok(content) => {
+                    axum::response::Response::builder()
+                        .header("content-type", "text/html")
+                        .body(content.into())
+                        .unwrap()
+                },
+                Err(_) => {
+                    axum::response::Response::builder()
+                        .status(404)
+                        .header("content-type", "text/html")
+                        .body(r#"
+<html>
+<body style="font-family: Arial; background: #1a1a1a; color: #fff; padding: 40px;">
+    <h1>Dashboard Not Found</h1>
+    <p>Could not locate dashboard/index.html</p>
+    <p>Please ensure the dashboard files are in the correct location.</p>
+    <p><a href="/" style="color: #4a9eff;">Back to Status Page</a></p>
+</body>
+</html>
+                        "#.into())
+                        .unwrap()
+                }
+            }
+        }
+    }
+}
+
+async fn serve_dashboard() -> Response {
+    // Try to serve the dashboard file
+    match std::fs::read_to_string("dashboard/index.html") {
+        Ok(content) => axum::response::Html(content).into_response(),
+        Err(_) => {
+            // Fallback to a basic dashboard message
+            let fallback_html = r#"
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Backworks Dashboard</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; background: #1a1a1a; color: #fff; }
+        .container { max-width: 800px; margin: 0 auto; text-align: center; }
+        .status { background: #333; padding: 20px; border-radius: 8px; margin: 20px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Backworks Dashboard</h1>
+        <div class="status">
+            <h2>Dashboard is Running</h2>
+            <p>The Backworks proxy is active and monitoring API traffic.</p>
+            <p>Dashboard UI is available at: <code>/dashboard/index.html</code></p>
+        </div>
+        <h3>API Endpoints:</h3>
+        <ul style="text-align: left; max-width: 400px; margin: 0 auto;">
+            <li><a href="/api/metrics" style="color: #4a9eff;">/api/metrics</a> - Endpoint metrics</li>
+            <li><a href="/api/system" style="color: #4a9eff;">/api/system</a> - System metrics</li>
+            <li><a href="/api/architecture" style="color: #4a9eff;">/api/architecture</a> - Architecture diagram</li>
+            <li><strong>/ws</strong> - WebSocket for real-time updates</li>
+        </ul>
+    </div>
+</body>
+</html>
+            "#;
+            axum::response::Html(fallback_html).into_response()
+        }
+    }
 }
 
 async fn get_metrics(

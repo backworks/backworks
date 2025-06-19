@@ -10,6 +10,16 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://unpkg.com/reactflow@11/dist/index.umd.js"></script>
     <style>
+        :root {
+            --bg-color: #0f0f0f;
+            --text-color: #ffffff;
+            --card-bg: #1a1a1a;
+            --border-color: #333;
+            --hover-color: #222;
+            --sidebar-bg: #1a1a1a;
+            --main-bg: #111;
+        }
+        
         * {
             margin: 0;
             padding: 0;
@@ -18,8 +28,8 @@
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
-            background: #0f0f0f;
-            color: #ffffff;
+            background: var(--bg-color);
+            color: var(--text-color);
             overflow-x: hidden;
         }
 
@@ -60,8 +70,8 @@
         }
 
         .sidebar {
-            background: #1a1a1a;
-            border-right: 1px solid #333;
+            background: var(--sidebar-bg);
+            border-right: 1px solid var(--border-color);
             padding: 20px;
         }
 
@@ -84,7 +94,7 @@
         .main-content {
             padding: 20px;
             overflow-y: auto;
-            background: #111;
+            background: var(--main-bg);
         }
 
         .metrics-grid {
@@ -299,6 +309,269 @@
         .insights-list div:hover {
             background-color: #222 !important;
         }
+        
+        .header-actions button:hover {
+            background: rgba(255,255,255,0.2) !important;
+        }
+        
+        .nav-buttons button:hover {
+            background: rgba(255,255,255,0.1) !important;
+            color: #fff !important;
+        }
+        
+        /* Notification styles */
+        .notification-panel {
+            position: absolute;
+            top: 60px;
+            right: 20px;
+            width: 350px;
+            background: var(--panel-bg, #1a1a1a);
+            border-radius: 8px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            z-index: 100;
+            border: 1px solid var(--border-color, #333);
+            overflow: hidden;
+            transition: all 0.2s ease;
+            max-height: 500px;
+            display: none;
+        }
+        
+        .notification-panel.show {
+            display: block;
+        }
+        
+        .notification-panel-header {
+            padding: 15px;
+            background: var(--panel-header-bg, #222);
+            border-bottom: 1px solid var(--border-color, #333);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .notification-panel-content {
+            padding: 15px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .notification-actions {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .clear-all-btn {
+            padding: 4px 8px;
+            font-size: 12px;
+            background: rgba(255,255,255,0.1);
+            border: 1px solid #444;
+            border-radius: 4px;
+            color: #fff;
+            cursor: pointer;
+        }
+        
+        .notification-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .notification-item {
+            display: flex;
+            padding: 12px;
+            background: var(--notification-bg, #222);
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+            position: relative;
+        }
+        
+        .notification-item.success {
+            border-left-color: #00cc66;
+        }
+        
+        .notification-item.error {
+            border-left-color: #ff4444;
+        }
+        
+        .notification-item.warning {
+            border-left-color: #ffbb33;
+        }
+        
+        .notification-item.info {
+            border-left-color: #33b5e5;
+        }
+        
+        .notification-icon {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 30px;
+            height: 30px;
+            margin-right: 10px;
+            font-size: 16px;
+            border-radius: 50%;
+        }
+        
+        .notification-item.success .notification-icon {
+            color: #00cc66;
+        }
+        
+        .notification-item.error .notification-icon {
+            color: #ff4444;
+        }
+        
+        .notification-item.warning .notification-icon {
+            color: #ffbb33;
+        }
+        
+        .notification-item.info .notification-icon {
+            color: #33b5e5;
+        }
+        
+        .notification-content {
+            flex: 1;
+        }
+        
+        .notification-title {
+            font-weight: bold;
+            margin-bottom: 4px;
+        }
+        
+        .notification-message {
+            font-size: 13px;
+            margin-bottom: 6px;
+            color: var(--text-color, #ddd);
+            opacity: 0.9;
+        }
+        
+        .notification-time {
+            font-size: 11px;
+            color: var(--muted-text, #999);
+        }
+        
+        .notification-close {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: none;
+            border: none;
+            color: #999;
+            cursor: pointer;
+            font-size: 14px;
+            padding: 2px;
+        }
+        
+        .notification-close:hover {
+            color: #fff;
+        }
+        
+        .empty-notifications {
+            text-align: center;
+            padding: 30px 0;
+            color: #999;
+        }
+        
+        .notification-badge {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            background: #ff4444;
+            color: white;
+            border-radius: 50%;
+            width: 16px;
+            height: 16px;
+            font-size: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        /* Settings panel styles */
+        .settings-panel {
+            position: absolute;
+            top: 60px;
+            right: 20px;
+            width: 300px;
+            background: var(--panel-bg, #1a1a1a);
+            border-radius: 8px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            z-index: 100;
+            border: 1px solid var(--border-color, #333);
+            overflow: hidden;
+            transition: all 0.2s ease;
+        }
+        
+        .settings-panel-header {
+            padding: 15px;
+            background: var(--panel-header-bg, #222);
+            border-bottom: 1px solid var(--border-color, #333);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .settings-panel-content {
+            padding: 15px;
+        }
+        
+        .settings-row {
+            padding: 10px 0;
+            border-bottom: 1px solid #333;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .settings-row:last-child {
+            border-bottom: none;
+        }
+        
+        /* Toggle switch */
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 46px;
+            height: 24px;
+        }
+        
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #333;
+            transition: .4s;
+            border-radius: 24px;
+        }
+        
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: #fff;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        
+        input:checked + .toggle-slider {
+            background-color: #667eea;
+        }
+        
+        input:checked + .toggle-slider:before {
+            transform: translateX(22px);
+        }
     </style>
 </head>
 <body>
@@ -309,24 +582,278 @@
 
         function Dashboard() {
             const [activeTab, setActiveTab] = useState('overview');
-            const [metrics, setMetrics] = useState([]);
-            const [systemMetrics, setSystemMetrics] = useState({});
-            const [architecture, setArchitecture] = useState({ nodes: [], edges: [] });
+            const [metrics, setMetrics] = useState([
+                {
+                    id: 1,
+                    method: 'GET',
+                    path: '/api/users',
+                    request_count: 1247,
+                    avg_response_time: 89,
+                    error_rate: 0.02,
+                    last_request: new Date(Date.now() - 300000).toISOString(), // 5 minutes ago
+                    responseTime: 89,
+                    successRate: 98
+                },
+                {
+                    id: 2,
+                    method: 'POST',
+                    path: '/api/orders',
+                    request_count: 892,
+                    avg_response_time: 156,
+                    error_rate: 0.05,
+                    last_request: new Date(Date.now() - 120000).toISOString(), // 2 minutes ago
+                    responseTime: 156,
+                    successRate: 95
+                },
+                {
+                    id: 3,
+                    method: 'GET',
+                    path: '/api/products',
+                    request_count: 2341,
+                    avg_response_time: 67,
+                    error_rate: 0.01,
+                    last_request: new Date(Date.now() - 60000).toISOString(), // 1 minute ago
+                    responseTime: 67,
+                    successRate: 99
+                },
+                {
+                    id: 4,
+                    method: 'PUT',
+                    path: '/api/users/{id}',
+                    request_count: 456,
+                    avg_response_time: 234,
+                    error_rate: 0.08,
+                    last_request: new Date(Date.now() - 900000).toISOString(), // 15 minutes ago
+                    responseTime: 234,
+                    successRate: 92
+                },
+                {
+                    id: 5,
+                    method: 'DELETE',
+                    path: '/api/orders/{id}',
+                    request_count: 123,
+                    avg_response_time: 134,
+                    error_rate: 0.03,
+                    last_request: new Date(Date.now() - 1800000).toISOString(), // 30 minutes ago
+                    responseTime: 134,
+                    successRate: 97
+                }
+            ]);
+            const [systemMetrics, setSystemMetrics] = useState({
+                cpu_usage: 45.2,
+                memory_usage: 68.7,
+                disk_usage: 23.1,
+                network_in: 1024 * 1024 * 15, // 15 MB
+                network_out: 1024 * 1024 * 8, // 8 MB
+                total_requests: 15847,
+                error_count: 23,
+                avg_response_time: 156,
+                uptime: 86400 * 7, // 7 days in seconds
+                active_connections: 234,
+                cache_hit_rate: 0.85,
+                database_connections: 12,
+                memory_total: 8 * 1024 * 1024 * 1024 // 8GB
+            });
+            const [architecture, setArchitecture] = useState({
+                nodes: [
+                    {
+                        id: 'api-gateway',
+                        label: 'API Gateway',
+                        node_type: 'endpoint',
+                        description: 'Main entry point for all API requests',
+                        status: 'active',
+                        position: { x: 100, y: 100 },
+                        config: {
+                            port: 8080,
+                            timeout: 30000,
+                            rateLimit: '1000/minute'
+                        }
+                    },
+                    {
+                        id: 'auth-service',
+                        label: 'Auth Service',
+                        node_type: 'service',
+                        description: 'Authentication and authorization service',
+                        status: 'active',
+                        position: { x: 300, y: 50 },
+                        config: {
+                            jwt_expiry: '1h',
+                            refresh_token_expiry: '7d'
+                        }
+                    },
+                    {
+                        id: 'user-db',
+                        label: 'User Database',
+                        node_type: 'database',
+                        description: 'PostgreSQL database for user data',
+                        status: 'active',
+                        position: { x: 500, y: 100 },
+                        config: {
+                            host: 'localhost',
+                            port: 5432,
+                            pool_size: 20
+                        }
+                    },
+                    {
+                        id: 'orders-service',
+                        label: 'Orders Service',
+                        node_type: 'service',
+                        description: 'Order processing and management',
+                        status: 'active',
+                        position: { x: 300, y: 200 },
+                        config: {
+                            queue_size: 1000,
+                            worker_threads: 4
+                        }
+                    },
+                    {
+                        id: 'payment-gateway',
+                        label: 'Payment Gateway',
+                        node_type: 'external',
+                        description: 'External payment processing service',
+                        status: 'active',
+                        position: { x: 500, y: 250 },
+                        config: {
+                            timeout: 10000,
+                            retry_attempts: 3
+                        }
+                    }
+                ],
+                edges: [
+                    {
+                        id: 'e1',
+                        source: 'api-gateway',
+                        target: 'auth-service',
+                        type: 'api_call'
+                    },
+                    {
+                        id: 'e2',
+                        source: 'auth-service',
+                        target: 'user-db',
+                        type: 'data_flow'
+                    },
+                    {
+                        id: 'e3',
+                        source: 'api-gateway',
+                        target: 'orders-service',
+                        type: 'api_call'
+                    },
+                    {
+                        id: 'e4',
+                        source: 'orders-service',
+                        target: 'payment-gateway',
+                        type: 'external_call'
+                    }
+                ]
+            });
             const [connected, setConnected] = useState(false);
             const [error, setError] = useState(null);
+            const [realtimeData, setRealtimeData] = useState([]);
+            const [notifications, setNotifications] = useState([]);
+            const [showNotifications, setShowNotifications] = useState(false);
+            const notificationTimeoutRef = useRef({});
             const wsRef = useRef(null);
             const chartRef = useRef(null);
+            const realtimeChartRef = useRef(null);
+            
+            const addNotification = (notification) => {
+                const id = Date.now().toString();
+                const newNotification = {
+                    ...notification,
+                    id,
+                    timestamp: new Date()
+                };
+                
+                setNotifications(prev => [newNotification, ...prev].slice(0, 50)); // Keep max 50 notifications
+                
+                // Auto dismiss after 5 seconds for non-error notifications
+                if (notification.type !== 'error') {
+                    notificationTimeoutRef.current[id] = setTimeout(() => {
+                        removeNotification(id);
+                    }, 5000);
+                }
+                
+                return id;
+            };
+            
+            const removeNotification = (id) => {
+                if (notificationTimeoutRef.current[id]) {
+                    clearTimeout(notificationTimeoutRef.current[id]);
+                    delete notificationTimeoutRef.current[id];
+                }
+                setNotifications(prev => prev.filter(n => n.id !== id));
+            };
+            
+            const toggleNotifications = () => {
+                setShowNotifications(!showNotifications);
+            };
 
             useEffect(() => {
+                // Try to connect to WebSocket, but fall back to simulation mode if it fails
                 connectWebSocket();
                 fetchInitialData();
+                
+                // Welcome notification
+                setTimeout(() => {
+                    addNotification({
+                        type: 'info',
+                        title: 'Welcome to Backworks Dashboard',
+                        message: 'Dashboard loaded successfully. Running in demo mode with simulated data.'
+                    });
+                }, 1000);
+                
+                // Start simulation mode for demo purposes
+                const simulationInterval = setInterval(() => {
+                    if (settings.autoRefresh) {
+                        simulateRealtimeData();
+                    }
+                }, settings.refreshInterval * 1000);
                 
                 return () => {
                     if (wsRef.current) {
                         wsRef.current.close();
                     }
+                    clearInterval(simulationInterval);
                 };
-            }, []);
+            }, [settings.autoRefresh, settings.refreshInterval]);
+            
+            // Simulate real-time data for demo purposes
+            const simulateRealtimeData = () => {
+                const newData = {
+                    timestamp: new Date().toISOString(),
+                    method: ['GET', 'POST', 'PUT', 'DELETE'][Math.floor(Math.random() * 4)],
+                    path: ['/api/users', '/api/orders', '/api/products', '/api/auth'][Math.floor(Math.random() * 4)],
+                    status_code: Math.random() > 0.1 ? 200 : (Math.random() > 0.5 ? 400 : 500),
+                    response_time: Math.floor(Math.random() * 500) + 50,
+                    user_id: Math.floor(Math.random() * 1000)
+                };
+                
+                setRealtimeData(prev => [...prev.slice(-49), newData]); // Keep last 50 items
+                
+                // Update system metrics periodically
+                setSystemMetrics(prev => ({
+                    ...prev,
+                    cpu_usage: Math.max(10, Math.min(90, prev.cpu_usage + (Math.random() - 0.5) * 5)),
+                    memory_usage: Math.max(20, Math.min(95, prev.memory_usage + (Math.random() - 0.5) * 3)),
+                    total_requests: prev.total_requests + 1,
+                    error_count: newData.status_code >= 400 ? prev.error_count + 1 : prev.error_count
+                }));
+                
+                // Generate notifications for errors
+                if (newData.status_code >= 500 && settings.notifications) {
+                    addNotification({
+                        type: 'error',
+                        title: 'Server Error Detected',
+                        message: `${newData.method} ${newData.path} returned ${newData.status_code}`
+                    });
+                } else if (newData.response_time > 400 && settings.notifications) {
+                    addNotification({
+                        type: 'warning',
+                        title: 'Slow Response Time',
+                        message: `${newData.method} ${newData.path} took ${newData.response_time}ms`
+                    });
+                }
+            };
 
             const connectWebSocket = () => {
                 const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -339,6 +866,11 @@
                         setConnected(true);
                         setError(null);
                         console.log('WebSocket connected');
+                        addNotification({
+                            type: 'success',
+                            title: 'Connected',
+                            message: 'Real-time connection established'
+                        });
                     };
                     
                     wsRef.current.onmessage = (event) => {
@@ -352,27 +884,29 @@
                     
                     wsRef.current.onclose = () => {
                         setConnected(false);
-                        console.log('WebSocket disconnected');
-                        // Attempt to reconnect after 3 seconds
-                        setTimeout(connectWebSocket, 3000);
+                        console.log('WebSocket disconnected - running in demo mode');
+                        // Don't attempt to reconnect for demo purposes
+                        // setTimeout(connectWebSocket, 3000);
                     };
                     
                     wsRef.current.onerror = (err) => {
-                        setError('WebSocket connection failed');
-                        console.error('WebSocket error:', err);
+                        setConnected(false);
+                        console.log('WebSocket connection failed - running in demo mode');
+                        // Don't set error for demo purposes - just run in simulation mode
                     };
                 } catch (err) {
-                    setError('Failed to create WebSocket connection');
-                    console.error('WebSocket creation error:', err);
+                    setConnected(false);
+                    console.log('WebSocket creation failed - running in demo mode');
                 }
             };
 
             const fetchInitialData = async () => {
                 try {
+                    // Try to fetch from real API endpoints, but gracefully handle failures
                     const [metricsRes, systemRes, archRes] = await Promise.all([
-                        fetch('/api/metrics'),
-                        fetch('/api/system'),
-                        fetch('/api/architecture')
+                        fetch('/api/metrics').catch(() => ({ ok: false })),
+                        fetch('/api/system').catch(() => ({ ok: false })),
+                        fetch('/api/architecture').catch(() => ({ ok: false }))
                     ]);
                     
                     if (metricsRes.ok) {
@@ -385,8 +919,8 @@
                         setArchitecture(await archRes.json());
                     }
                 } catch (err) {
-                    setError('Failed to fetch initial data');
-                    console.error('Fetch error:', err);
+                    // Gracefully handle API failures - data is already initialized with mock data
+                    console.log('API endpoints not available - using mock data for demo');
                 }
             };
 
@@ -399,12 +933,77 @@
                         break;
                     case 'request':
                         updateMetricsFromRequest(data.data);
+                        // Add to real-time monitoring data
+                        const timestamp = new Date().toISOString();
+                        setRealtimeData(prev => {
+                            const newData = [...prev, {
+                                timestamp,
+                                path: data.data.path,
+                                method: data.data.method,
+                                responseTime: data.data.response_time,
+                                statusCode: data.data.status_code
+                            }];
+                            // Keep only the last 100 entries
+                            return newData.slice(-100);
+                        });
+                        
+                        // Check for error status codes and create notifications
+                        if (data.data.status_code >= 500) {
+                            addNotification({
+                                type: 'error',
+                                title: 'Server Error',
+                                message: `${data.data.method} ${data.data.path} returned ${data.data.status_code}`,
+                                timestamp: new Date().toISOString()
+                            });
+                        } else if (data.data.status_code >= 400) {
+                            addNotification({
+                                type: 'warning',
+                                title: 'Client Error',
+                                message: `${data.data.method} ${data.data.path} returned ${data.data.status_code}`,
+                                timestamp: new Date().toISOString()
+                            });
+                        } else if (data.data.response_time > 1000) {
+                            addNotification({
+                                type: 'warning',
+                                title: 'Slow Response',
+                                message: `${data.data.method} ${data.data.path} took ${Math.round(data.data.response_time)}ms`,
+                                timestamp: new Date().toISOString()
+                            });
+                        }
                         break;
                     case 'system_metrics':
                         setSystemMetrics(data.data);
+                        // Check for system warning conditions
+                        if (data.data.cpu_usage > 80) {
+                            addNotification({
+                                type: 'warning',
+                                title: 'High CPU Usage',
+                                message: `CPU usage is at ${Math.round(data.data.cpu_usage)}%`,
+                                timestamp: new Date().toISOString()
+                            });
+                        }
+                        if (data.data.memory_percent > 85) {
+                            addNotification({
+                                type: 'warning',
+                                title: 'High Memory Usage',
+                                message: `Memory usage is at ${Math.round(data.data.memory_percent)}%`,
+                                timestamp: new Date().toISOString()
+                            });
+                        }
                         break;
                     case 'architecture_update':
                         setArchitecture(data.data);
+                        break;
+                    case 'alert':
+                        // Handle explicit alerts from the server
+                        if (data.data && data.data.severity) {
+                            addNotification({
+                                type: data.data.severity,
+                                title: data.data.title || 'System Alert',
+                                message: data.data.message,
+                                timestamp: new Date().toISOString()
+                            });
+                        }
                         break;
                     default:
                         console.log('Unknown message type:', data.event_type || data.type);
@@ -927,12 +1526,128 @@
                 
                 const handleSaveConfig = () => {
                     // This would normally save to the backend
-                    alert(`Configuration saved for ${selectedEndpoint.method} ${selectedEndpoint.path}`);
+                    addNotification({
+                        type: 'success',
+                        title: 'Configuration Saved',
+                        message: `Configuration for ${selectedEndpoint.method} ${selectedEndpoint.path} has been saved.`
+                    });
                 };
                 
                 const handleToggleMock = () => {
                     setMockEnabled(!mockEnabled);
                     // In a real implementation, this would tell the backend to start/stop mocking
+                    addNotification({
+                        type: 'info',
+                        title: 'Mock Mode Updated',
+                        message: `Mock responses for ${selectedEndpoint.method} ${selectedEndpoint.path} are now ${!mockEnabled ? 'enabled' : 'disabled'}.`
+                    });
+                };
+                
+                const exportEndpointData = (format) => {
+                    // In a real application, this would fetch from the backend API
+                    if (!selectedEndpoint) return;
+                    
+                    const endpoint = selectedEndpoint;
+                    let data;
+                    
+                    switch (format) {
+                        case 'json':
+                            data = JSON.stringify({
+                                endpoint: {
+                                    method: endpoint.method,
+                                    path: endpoint.path,
+                                    responseTime: endpoint.responseTime,
+                                    successRate: endpoint.successRate,
+                                    requestCount: endpoint.requestCount,
+                                    lastAccessed: endpoint.lastAccessed
+                                },
+                                configuration: {
+                                    mockEnabled,
+                                    rateLimit,
+                                    cacheTtl
+                                },
+                                history: responseHistory
+                            }, null, 2);
+                            downloadData(data, `endpoint-${endpoint.method}-${endpoint.path.replace(/\//g, '-')}.json`, 'application/json');
+                            break;
+                            
+                        case 'csv':
+                            // Header
+                            data = 'Time,Response Time (ms),Success\n';
+                            // Data rows
+                            responseHistory.forEach(point => {
+                                data += `${point.time},${point.responseTime},${point.success ? 1 : 0}\n`;
+                            });
+                            downloadData(data, `endpoint-${endpoint.method}-${endpoint.path.replace(/\//g, '-')}.csv`, 'text/csv');
+                            break;
+                            
+                        case 'har':
+                            // Simple HAR format
+                            const har = {
+                                log: {
+                                    version: '1.2',
+                                    creator: {
+                                        name: 'Backworks Dashboard',
+                                        version: '1.0'
+                                    },
+                                    entries: responseHistory.map((point, idx) => ({
+                                        startedDateTime: point.time,
+                                        request: {
+                                            method: endpoint.method,
+                                            url: `http://example.com${endpoint.path}`,
+                                            httpVersion: 'HTTP/1.1',
+                                            cookies: [],
+                                            headers: [],
+                                            queryString: [],
+                                            headersSize: -1,
+                                            bodySize: -1
+                                        },
+                                        response: {
+                                            status: point.success ? 200 : 500,
+                                            statusText: point.success ? 'OK' : 'Error',
+                                            httpVersion: 'HTTP/1.1',
+                                            cookies: [],
+                                            headers: [],
+                                            content: {
+                                                size: 0,
+                                                mimeType: 'application/json'
+                                            },
+                                            redirectURL: '',
+                                            headersSize: -1,
+                                            bodySize: -1
+                                        },
+                                        time: point.responseTime,
+                                        cache: {},
+                                        timings: {
+                                            send: 0,
+                                            wait: point.responseTime,
+                                            receive: 0
+                                        }
+                                    }))
+                                }
+                            };
+                            downloadData(JSON.stringify(har, null, 2), `endpoint-${endpoint.method}-${endpoint.path.replace(/\//g, '-')}.har`, 'application/json');
+                            break;
+                    }
+                    
+                    addNotification({
+                        type: 'success',
+                        title: 'Export Complete',
+                        message: `Data for ${endpoint.method} ${endpoint.path} has been exported as ${format.toUpperCase()}.`
+                    });
+                };
+                
+                const downloadData = (data, filename, type) => {
+                    const blob = new Blob([data], { type });
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.style.display = 'none';
+                    a.href = url;
+                    a.download = filename;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
                 };
                 
                 const renderTabContent = () => {
@@ -984,12 +1699,76 @@
                                                     background: '#007bff',
                                                     border: 'none',
                                                     color: '#fff',
-                                                    cursor: 'pointer'
+                                                    cursor: 'pointer',
+                                                    marginRight: '10px'
                                                 }}
                                                 onClick={() => window.open(`/test/${selectedEndpoint.path}`, '_blank')}
                                             >
                                                 Test Endpoint
                                             </button>
+                                            
+                                            <div className="dropdown" style={{ display: 'inline-block', position: 'relative' }}>
+                                                <button 
+                                                    style={{
+                                                        padding: '8px 16px',
+                                                        borderRadius: '6px',
+                                                        background: '#3c875c',
+                                                        border: 'none',
+                                                        color: '#fff',
+                                                        cursor: 'pointer',
+                                                        display: 'flex',
+                                                        alignItems: 'center'
+                                                    }}
+                                                    onClick={(e) => {
+                                                        const dropdown = e.currentTarget.nextElementSibling;
+                                                        dropdown.style.display = dropdown.style.display === 'block' ? 'none' : 'block';
+                                                    }}
+                                                >
+                                                    Export Data ▼
+                                                </button>
+                                                <div style={{ 
+                                                    display: 'none', 
+                                                    position: 'absolute', 
+                                                    backgroundColor: '#222', 
+                                                    minWidth: '160px', 
+                                                    boxShadow: '0px 8px 16px 0px rgba(0,0,0,0.5)',
+                                                    zIndex: 1,
+                                                    borderRadius: '4px',
+                                                    border: '1px solid #333',
+                                                    top: '100%',
+                                                    right: 0
+                                                }}>
+                                                    <a onClick={() => exportEndpointData('json')} style={{ 
+                                                        color: '#ddd', 
+                                                        padding: '12px 16px', 
+                                                        textDecoration: 'none', 
+                                                        display: 'block', 
+                                                        cursor: 'pointer',
+                                                        borderBottom: '1px solid #333'
+                                                    }}>
+                                                        Export as JSON
+                                                    </a>
+                                                    <a onClick={() => exportEndpointData('csv')} style={{ 
+                                                        color: '#ddd', 
+                                                        padding: '12px 16px', 
+                                                        textDecoration: 'none', 
+                                                        display: 'block',
+                                                        cursor: 'pointer',
+                                                        borderBottom: '1px solid #333'
+                                                    }}>
+                                                        Export as CSV
+                                                    </a>
+                                                    <a onClick={() => exportEndpointData('har')} style={{ 
+                                                        color: '#ddd', 
+                                                        padding: '12px 16px', 
+                                                        textDecoration: 'none', 
+                                                        display: 'block',
+                                                        cursor: 'pointer'
+                                                    }}>
+                                                        Export as HAR
+                                                    </a>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                     
@@ -1308,6 +2087,242 @@
                 );
             };
 
+            const renderMonitoring = () => {
+                const [activeMetric, setActiveMetric] = useState('response_time');
+                const realtimeChartInstanceRef = useRef(null);
+                const maxDataPoints = 50;
+                
+                useEffect(() => {
+                    if (realtimeChartRef.current) {
+                        if (realtimeChartInstanceRef.current) {
+                            realtimeChartInstanceRef.current.destroy();
+                        }
+                        
+                        const ctx = realtimeChartRef.current.getContext('2d');
+                        
+                        // Calculate data based on active metric
+                        let chartData = [];
+                        let chartLabels = [];
+                        
+                        if (realtimeData.length > 0) {
+                            // Get last N data points
+                            const displayData = realtimeData.slice(-maxDataPoints);
+                            
+                            // Group by method for better visualization
+                            const methodGroups = {};
+                            
+                            displayData.forEach(entry => {
+                                const method = entry.method;
+                                if (!methodGroups[method]) {
+                                    methodGroups[method] = [];
+                                }
+                                methodGroups[method].push(entry);
+                                
+                                if (!chartLabels.includes(new Date(entry.timestamp).toLocaleTimeString())) {
+                                    chartLabels.push(new Date(entry.timestamp).toLocaleTimeString());
+                                }
+                            });
+                            
+                            // Create dataset for each HTTP method
+                            const datasets = [];
+                            const methodColors = {
+                                'GET': 'rgba(0, 170, 68, 0.7)',
+                                'POST': 'rgba(0, 102, 204, 0.7)',
+                                'PUT': 'rgba(255, 136, 0, 0.7)',
+                                'DELETE': 'rgba(204, 0, 0, 0.7)',
+                                'PATCH': 'rgba(156, 39, 176, 0.7)',
+                                'OPTIONS': 'rgba(121, 85, 72, 0.7)',
+                                'HEAD': 'rgba(96, 125, 139, 0.7)',
+                            };
+                            
+                            Object.keys(methodGroups).forEach(method => {
+                                const data = Array(chartLabels.length).fill(null);
+                                
+                                methodGroups[method].forEach(entry => {
+                                    const idx = chartLabels.indexOf(new Date(entry.timestamp).toLocaleTimeString());
+                                    if (idx !== -1) {
+                                        let value;
+                                        
+                                        switch (activeMetric) {
+                                            case 'response_time':
+                                                value = entry.responseTime;
+                                                break;
+                                            case 'status_code':
+                                                value = entry.statusCode;
+                                                break;
+                                            default:
+                                                value = entry.responseTime;
+                                        }
+                                        
+                                        data[idx] = value;
+                                    }
+                                });
+                                
+                                datasets.push({
+                                    label: method,
+                                    data: data,
+                                    backgroundColor: methodColors[method] || 'rgba(128, 128, 128, 0.7)',
+                                    borderColor: methodColors[method]?.replace('0.7', '1') || 'rgba(128, 128, 128, 1)',
+                                    borderWidth: 2,
+                                    pointRadius: 3,
+                                    pointHoverRadius: 5,
+                                    tension: 0.2,
+                                    fill: false
+                                });
+                            });
+                            
+                            chartData = datasets;
+                        }
+                        
+                        const newChart = new Chart(ctx, {
+                            type: 'line',
+                            data: {
+                                labels: chartLabels,
+                                datasets: chartData
+                            },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                animation: {
+                                    duration: 0 // Disable animation for better performance on real-time data
+                                },
+                                scales: {
+                                    y: {
+                                        title: {
+                                            display: true,
+                                            text: activeMetric === 'response_time' ? 'Response Time (ms)' : 'Status Code',
+                                            color: '#888'
+                                        },
+                                        ticks: {
+                                            color: '#888'
+                                        },
+                                        grid: {
+                                            color: 'rgba(255, 255, 255, 0.1)'
+                                        }
+                                    },
+                                    x: {
+                                        ticks: {
+                                            color: '#888',
+                                            maxRotation: 45,
+                                            minRotation: 45,
+                                            maxTicksLimit: 10
+                                        },
+                                        grid: {
+                                            color: 'rgba(255, 255, 255, 0.1)'
+                                        }
+                                    }
+                                },
+                                plugins: {
+                                    legend: {
+                                        position: 'top',
+                                        labels: {
+                                            color: '#888'
+                                        }
+                                    },
+                                    tooltip: {
+                                        mode: 'index',
+                                        intersect: false
+                                    }
+                                }
+                            }
+                        });
+                        
+                        realtimeChartInstanceRef.current = newChart;
+                    }
+                    
+                    return () => {
+                        if (realtimeChartInstanceRef.current) {
+                            realtimeChartInstanceRef.current.destroy();
+                        }
+                    };
+                }, [realtimeData, activeMetric]);
+                
+                return (
+                    <div>
+                        <div style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <h2 style={{ fontSize: '24px', margin: 0 }}>Real-time Monitor</h2>
+                            <div className="metric-selector" style={{ display: 'flex', gap: '10px' }}>
+                                <button
+                                    onClick={() => setActiveMetric('response_time')}
+                                    style={{
+                                        padding: '8px 16px',
+                                        borderRadius: '6px',
+                                        background: activeMetric === 'response_time' ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' : '#2a2a2a',
+                                        border: 'none',
+                                        color: '#fff',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    Response Time
+                                </button>
+                                <button
+                                    onClick={() => setActiveMetric('status_code')}
+                                    style={{
+                                        padding: '8px 16px',
+                                        borderRadius: '6px',
+                                        background: activeMetric === 'status_code' ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' : '#2a2a2a',
+                                        border: 'none',
+                                        color: '#fff',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    Status Codes
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div className="chart-container">
+                            <div style={{ height: '400px', position: 'relative' }}>
+                                {realtimeData.length === 0 ? (
+                                    <div className="loading">Waiting for incoming requests...</div>
+                                ) : (
+                                    <canvas ref={realtimeChartRef}></canvas>
+                                )}
+                            </div>
+                        </div>
+                        
+                        <div className="chart-container">
+                            <div className="chart-title">Recent Requests</div>
+                            <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
+                                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                    <thead>
+                                        <tr style={{ borderBottom: '2px solid #333' }}>
+                                            <th style={{ padding: '10px', textAlign: 'left', color: '#888' }}>Time</th>
+                                            <th style={{ padding: '10px', textAlign: 'left', color: '#888' }}>Method</th>
+                                            <th style={{ padding: '10px', textAlign: 'left', color: '#888' }}>Path</th>
+                                            <th style={{ padding: '10px', textAlign: 'left', color: '#888' }}>Status</th>
+                                            <th style={{ padding: '10px', textAlign: 'left', color: '#888' }}>Response Time</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {realtimeData.slice(-10).reverse().map((entry, index) => (
+                                            <tr key={index} style={{ borderBottom: '1px solid #333' }}>
+                                                <td style={{ padding: '10px' }}>{new Date(entry.timestamp).toLocaleTimeString()}</td>
+                                                <td style={{ padding: '10px' }}>
+                                                    <span className={`endpoint-method method-${entry.method.toLowerCase()}`}>
+                                                        {entry.method}
+                                                    </span>
+                                                </td>
+                                                <td style={{ padding: '10px', fontFamily: 'monospace' }}>{entry.path}</td>
+                                                <td style={{ padding: '10px' }}>
+                                                    <span style={{
+                                                        color: entry.statusCode < 400 ? '#00cc44' : '#cc0000',
+                                                        fontWeight: 'bold'
+                                                    }}>
+                                                        {entry.statusCode}
+                                                    </span>
+                                                </td>
+                                                <td style={{ padding: '10px' }}>{entry.responseTime} ms</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                );
+            };
+            
             const renderAIInsights = () => {
                 const [selectedInsight, setSelectedInsight] = useState(null);
                 const [loading, setLoading] = useState(false);
@@ -1610,6 +2625,8 @@ at async Router.post (routes/api.js:56:18)`}
             
             const renderArchitecture = () => {
                 const [selectedNode, setSelectedNode] = useState(null);
+                const [viewMode, setViewMode] = useState('diagram'); // 'diagram' or 'list'
+                const [searchTerm, setSearchTerm] = useState('');
                 
                 const nodeColors = {
                     endpoint: '#667eea',
@@ -1883,13 +2900,275 @@ at async Router.post (routes/api.js:56:18)`}
                 );
             };
 
+            const [settings, setSettings] = useState({
+                theme: 'dark',
+                notifications: true,
+                autoRefresh: true,
+                refreshInterval: 10 // seconds
+            });
+            
+            const [showSettings, setShowSettings] = useState(false);
+            
+            const toggleTheme = () => {
+                const newTheme = settings.theme === 'dark' ? 'light' : 'dark';
+                setSettings({...settings, theme: newTheme});
+                document.documentElement.setAttribute('data-theme', newTheme);
+                // Apply theme changes to the DOM
+                applyTheme(newTheme);
+            };
+            
+            // Function to apply theme changes
+            const applyTheme = (theme) => {
+                const root = document.documentElement;
+                if (theme === 'dark') {
+                    root.style.setProperty('--bg-color', '#0f0f0f');
+                    root.style.setProperty('--text-color', '#ffffff');
+                    root.style.setProperty('--card-bg', '#1a1a1a');
+                    root.style.setProperty('--border-color', '#333');
+                    root.style.setProperty('--hover-color', '#222');
+                    root.style.setProperty('--sidebar-bg', '#1a1a1a');
+                    root.style.setProperty('--main-bg', '#111');
+                    root.style.setProperty('--panel-bg', '#1a1a1a');
+                    root.style.setProperty('--panel-header-bg', '#222');
+                    root.style.setProperty('--notification-bg', '#222');
+                    root.style.setProperty('--dropdown-bg', '#222');
+                    root.style.setProperty('--dropdown-hover', '#333');
+                    root.style.setProperty('--muted-text', '#888');
+                    root.style.setProperty('--button-hover', 'rgba(255,255,255,0.1)');
+                } else {
+                    root.style.setProperty('--bg-color', '#f5f5f5');
+                    root.style.setProperty('--text-color', '#333333');
+                    root.style.setProperty('--card-bg', '#ffffff');
+                    root.style.setProperty('--border-color', '#e0e0e0');
+                    root.style.setProperty('--hover-color', '#f0f0f0');
+                    root.style.setProperty('--sidebar-bg', '#f0f0f0');
+                    root.style.setProperty('--main-bg', '#f9f9f9');
+                    root.style.setProperty('--panel-bg', '#ffffff');
+                    root.style.setProperty('--panel-header-bg', '#f0f0f0');
+                    root.style.setProperty('--notification-bg', '#ffffff');
+                    root.style.setProperty('--dropdown-bg', '#ffffff');
+                    root.style.setProperty('--dropdown-hover', '#f5f5f5');
+                    root.style.setProperty('--muted-text', '#666');
+                    root.style.setProperty('--button-hover', 'rgba(0,0,0,0.05)');
+                }
+                
+                // Apply theme to all charts
+                const updateCharts = () => {
+                    Chart.defaults.color = theme === 'dark' ? '#aaa' : '#666';
+                    Chart.defaults.borderColor = theme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
+                    
+                    // Force all charts to update
+                    Chart.instances.forEach(chart => {
+                        // Update grid and text colors
+                        if (chart.options.scales) {
+                            Object.values(chart.options.scales).forEach(scale => {
+                                if (scale.grid) scale.grid.color = theme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
+                                if (scale.ticks) scale.ticks.color = theme === 'dark' ? '#999' : '#666';
+                            });
+                        }
+                        
+                        // Update legend colors
+                        if (chart.options.plugins && chart.options.plugins.legend) {
+                            chart.options.plugins.legend.labels.color = theme === 'dark' ? '#ddd' : '#333';
+                        }
+                        
+                        chart.update();
+                    });
+                };
+                
+                // Update charts on next tick to ensure they've been initialized
+                setTimeout(updateCharts, 0);
+            };
+            
+            const toggleSettings = () => {
+                setShowSettings(!showSettings);
+                if (showNotifications) setShowNotifications(false);
+            };
+            
+            // Already defined above
+            
+            const NotificationPanel = () => {
+                return (
+                    <div className={`notification-panel ${showNotifications ? 'show' : ''}`}>
+                        <div className="notification-panel-header">
+                            <h3>Notifications</h3>
+                            <div className="notification-actions">
+                                {notifications.length > 0 && (
+                                    <button 
+                                        className="clear-all-btn" 
+                                        onClick={() => setNotifications([])}
+                                    >
+                                        Clear All
+                                    </button>
+                                )}
+                                <button onClick={toggleNotifications}>×</button>
+                            </div>
+                        </div>
+                        <div className="notification-panel-content">
+                            {notifications.length === 0 ? (
+                                <div className="empty-notifications">
+                                    <p>No notifications</p>
+                                </div>
+                            ) : (
+                                <div className="notification-list">
+                                    {notifications.map(notification => (
+                                        <div 
+                                            key={notification.id} 
+                                            className={`notification-item ${notification.type}`}
+                                        >
+                                            <div className="notification-icon">
+                                                {notification.type === 'success' && '✓'}
+                                                {notification.type === 'error' && '✗'}
+                                                {notification.type === 'warning' && '⚠'}
+                                                {notification.type === 'info' && 'ℹ'}
+                                            </div>
+                                            <div className="notification-content">
+                                                <div className="notification-title">{notification.title}</div>
+                                                <div className="notification-message">{notification.message}</div>
+                                                <div className="notification-time">
+                                                    {new Date(notification.timestamp).toLocaleTimeString()}
+                                                </div>
+                                            </div>
+                                            <button 
+                                                className="notification-close" 
+                                                onClick={() => removeNotification(notification.id)}
+                                            >
+                                                ×
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                );
+            };
+
             return (
                 <div className="dashboard">
                     <div className="header">
                         <div className="logo">⚡ Backworks</div>
-                        <div className="status">
-                            <div className={`status-dot ${connected ? '' : 'connecting'}`}></div>
-                            <span>{connected ? 'Connected' : 'Connecting...'}</span>
+                        
+                        <div className="nav-buttons" style={{ marginLeft: '40px', display: 'flex', gap: '5px' }}>
+                            <button 
+                                style={{
+                                    background: 'rgba(255,255,255,0.1)',
+                                    border: 'none',
+                                    borderRadius: '4px',
+                                    color: '#fff',
+                                    padding: '5px 10px',
+                                    fontSize: '14px',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '5px'
+                                }}
+                            >
+                                📊 Dashboard
+                            </button>
+                            <button 
+                                style={{
+                                    background: 'transparent',
+                                    border: 'none',
+                                    borderRadius: '4px',
+                                    color: '#ccc',
+                                    padding: '5px 10px',
+                                    fontSize: '14px',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '5px'
+                                }}
+                            >
+                                🔧 Settings
+                            </button>
+                            <button 
+                                style={{
+                                    background: 'transparent',
+                                    border: 'none',
+                                    borderRadius: '4px',
+                                    color: '#ccc',
+                                    padding: '5px 10px',
+                                    fontSize: '14px',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '5px'
+                                }}
+                            >
+                                📚 Docs
+                            </button>
+                        </div>
+                        
+                        <div className="header-actions" style={{ marginLeft: 'auto', display: 'flex', gap: '15px', alignItems: 'center' }}>
+                            <button
+                                onClick={toggleTheme}
+                                style={{
+                                    background: 'rgba(255,255,255,0.1)',
+                                    border: 'none',
+                                    borderRadius: '50%',
+                                    width: '32px',
+                                    height: '32px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    cursor: 'pointer',
+                                    color: '#fff',
+                                    fontSize: '16px'
+                                }}
+                                title={`Switch to ${settings.theme === 'dark' ? 'light' : 'dark'} mode`}
+                            >
+                                {settings.theme === 'dark' ? '🌙' : '☀️'}
+                            </button>
+                            
+                            <button
+                                onClick={toggleNotifications}
+                                style={{
+                                    background: 'rgba(255,255,255,0.1)',
+                                    border: 'none',
+                                    borderRadius: '50%',
+                                    width: '32px',
+                                    height: '32px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    cursor: 'pointer',
+                                    color: '#fff',
+                                    fontSize: '16px',
+                                    position: 'relative'
+                                }}
+                                title="Notifications"
+                            >
+                                🔔
+                                {notifications.length > 0 && (
+                                    <span className="notification-badge">{notifications.length > 9 ? '9+' : notifications.length}</span>
+                                )}
+                            </button>
+                            
+                            <button
+                                onClick={toggleSettings}
+                                style={{
+                                    background: 'rgba(255,255,255,0.1)',
+                                    border: 'none',
+                                    borderRadius: '50%',
+                                    width: '32px',
+                                    height: '32px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    cursor: 'pointer',
+                                    color: '#fff',
+                                    fontSize: '16px'
+                                }}
+                                title="Settings"
+                            >
+                                ⚙️
+                            </button>
+                            
+                            <div className="status">
+                                <div className={`status-dot ${connected ? '' : 'connecting'}`}></div>
+                                <span>{connected ? 'Live Data' : 'Demo Mode'}</span>
+                            </div>
                         </div>
                     </div>
 
@@ -1905,6 +3184,12 @@ at async Router.post (routes/api.js:56:18)`}
                             onClick={() => setActiveTab('endpoints')}
                         >
                             🔗 Endpoints
+                        </div>
+                        <div 
+                            className={`nav-item ${activeTab === 'monitoring' ? 'active' : ''}`}
+                            onClick={() => setActiveTab('monitoring')}
+                        >
+                            📈 Real-time Monitor
                         </div>
                         <div 
                             className={`nav-item ${activeTab === 'architecture' ? 'active' : ''}`}
@@ -1925,9 +3210,105 @@ at async Router.post (routes/api.js:56:18)`}
                         
                         {activeTab === 'overview' && renderOverview()}
                         {activeTab === 'endpoints' && renderEndpoints()}
+                        {activeTab === 'monitoring' && renderMonitoring()}
                         {activeTab === 'architecture' && renderArchitecture()}
                         {activeTab === 'ai' && renderAIInsights()}
                     </div>
+                    
+                    {/* Settings Panel */}
+                    {showSettings && (
+                        <div className="settings-panel">
+                            <div className="settings-panel-header">
+                                <h3 style={{ margin: 0 }}>Settings</h3>
+                                <button 
+                                    onClick={toggleSettings}
+                                    style={{
+                                        background: 'none',
+                                        border: 'none',
+                                        color: '#888',
+                                        fontSize: '20px',
+                                        cursor: 'pointer',
+                                        padding: '0 5px'
+                                    }}
+                                >×</button>
+                            </div>
+                            <div className="settings-panel-content">
+                                <div className="settings-row">
+                                    <div>
+                                        <div style={{ fontWeight: 'bold' }}>Dark Theme</div>
+                                        <div style={{ fontSize: '12px', color: '#888' }}>Switch between dark and light mode</div>
+                                    </div>
+                                    <label className="toggle-switch">
+                                        <input 
+                                            type="checkbox" 
+                                            checked={settings.theme === 'dark'} 
+                                            onChange={toggleTheme} 
+                                        />
+                                        <span className="toggle-slider"></span>
+                                    </label>
+                                </div>
+                                
+                                <div className="settings-row">
+                                    <div>
+                                        <div style={{ fontWeight: 'bold' }}>Notifications</div>
+                                        <div style={{ fontSize: '12px', color: '#888' }}>Enable alert notifications</div>
+                                    </div>
+                                    <label className="toggle-switch">
+                                        <input 
+                                            type="checkbox" 
+                                            checked={settings.notifications} 
+                                            onChange={() => setSettings({...settings, notifications: !settings.notifications})} 
+                                        />
+                                        <span className="toggle-slider"></span>
+                                    </label>
+                                </div>
+                                
+                                <div className="settings-row">
+                                    <div>
+                                        <div style={{ fontWeight: 'bold' }}>Auto Refresh</div>
+                                        <div style={{ fontSize: '12px', color: '#888' }}>Refresh data automatically</div>
+                                    </div>
+                                    <label className="toggle-switch">
+                                        <input 
+                                            type="checkbox" 
+                                            checked={settings.autoRefresh} 
+                                            onChange={() => setSettings({...settings, autoRefresh: !settings.autoRefresh})} 
+                                        />
+                                        <span className="toggle-slider"></span>
+                                    </label>
+                                </div>
+                                
+                                {settings.autoRefresh && (
+                                    <div className="settings-row">
+                                        <div>
+                                            <div style={{ fontWeight: 'bold' }}>Refresh Interval</div>
+                                            <div style={{ fontSize: '12px', color: '#888' }}>Time between refreshes (seconds)</div>
+                                        </div>
+                                        <input 
+                                            type="number" 
+                                            value={settings.refreshInterval}
+                                            min="5"
+                                            max="60"
+                                            onChange={(e) => setSettings({...settings, refreshInterval: parseInt(e.target.value)})}
+                                            style={{
+                                                background: '#2a2a2a',
+                                                border: '1px solid #444',
+                                                padding: '5px 8px',
+                                                borderRadius: '4px',
+                                                color: '#fff',
+                                                width: '60px'
+                                            }}
+                                        />
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+                    
+                    {/* Notification Panel */}
+                    {showNotifications && (
+                        <NotificationPanel />
+                    )}
                 </div>
             );
         }
