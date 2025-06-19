@@ -1,0 +1,38 @@
+name: "Backworks Test API"
+version: "1.0.0"
+description: "Test API to verify dashboard integration"
+
+mode: "proxy"
+port: 8080
+
+# Dashboard configuration
+dashboard:
+  enabled: true
+  port: 8081
+  title: "Backworks Dashboard"
+
+# Test endpoints
+endpoints:
+  users:
+    path: "/users"
+    methods: ["GET", "POST"]
+    description: "Users endpoint for testing"
+    mode: "proxy"
+    proxy:
+      target: "https://jsonplaceholder.typicode.com"
+      path_rewrite:
+        "/users": "/users"
+  
+  posts:
+    path: "/posts"
+    methods: ["GET"]
+    description: "Posts endpoint for testing"
+    mode: "proxy"
+    proxy:
+      target: "https://jsonplaceholder.typicode.com"
+      path_rewrite:
+        "/posts": "/posts"
+
+# AI configuration (for future use)
+ai:
+  enabled: false
