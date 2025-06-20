@@ -1,0 +1,86 @@
+{
+  "name": "Hello World API",
+  "description": "The simplest possible Backworks API demonstrating project-based structure",
+  "version": null,
+  "mode": "proxy",
+  "endpoints": {
+    "echo": {
+      "path": "/echo",
+      "methods": [
+        "POST"
+      ],
+      "description": "Echo back the request body",
+      "mode": null,
+      "runtime": {
+        "language": "javascript",
+        "handler": "function handler(req, res) {\n  return {\n    status: 200,\n    headers: { \"Content-Type\": \"application/json\" },\n    body: {\n      echo: req.body,\n      method: req.method,\n      path: req.path,\n      timestamp: new Date().toISOString()\n    }\n  };\n}\n",
+        "timeout": null,
+        "memory_limit": null,
+        "environment": null,
+        "requirements": null,
+        "working_dir": null
+      },
+      "database": null,
+      "proxy": null,
+      "capture": null,
+      "plugin": null,
+      "ai_enhanced": null,
+      "ai_suggestions": null,
+      "apis": null,
+      "parameters": null,
+      "validation": null,
+      "monitoring": null
+    },
+    "hello": {
+      "path": "/hello",
+      "methods": [
+        "GET"
+      ],
+      "description": "Say hello to the world",
+      "mode": null,
+      "runtime": {
+        "language": "javascript",
+        "handler": "function handler(req, res) {\n  return {\n    status: 200,\n    headers: { \"Content-Type\": \"application/json\" },\n    body: { \n      message: \"Hello, World!\",\n      timestamp: new Date().toISOString(),\n      version: \"1.0.0\"\n    }\n  };\n}\n",
+        "timeout": null,
+        "memory_limit": null,
+        "environment": null,
+        "requirements": null,
+        "working_dir": null
+      },
+      "database": null,
+      "proxy": null,
+      "capture": null,
+      "plugin": null,
+      "ai_enhanced": null,
+      "ai_suggestions": null,
+      "apis": null,
+      "parameters": null,
+      "validation": null,
+      "monitoring": null
+    }
+  },
+  "server": {
+    "port": 3002,
+    "host": "0.0.0.0"
+  },
+  "plugins": {},
+  "dashboard": {
+    "port": 3003,
+    "enabled": true,
+    "features": null,
+    "real_time": null,
+    "visualization": null,
+    "access": null
+  },
+  "database": null,
+  "apis": null,
+  "cache": null,
+  "security": null,
+  "monitoring": null,
+  "global_headers": {},
+  "logging": {
+    "level": "",
+    "include_body": false,
+    "include_headers": false
+  }
+}

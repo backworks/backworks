@@ -4,19 +4,24 @@
 
 ## 🎯 **What is Backworks?**
 
-Backworks turns simple service schematics into fully functional backend APIs with built-in monitoring.
+Backworks turns project-based service definitions into fully functional backend APIs with built-in monitoring.
 
-**Schematic → Working API + Dashboard**
+**Project Structure → Working API + Dashboard**
+
+```json
+// backworks.json - Project metadata
+{
+  "name": "my-api",
+  "version": "1.0.0",
+  "entrypoint": "blueprints/main.yaml",
+  "server": { "port": 3000 },
+  "dashboard": { "enabled": true, "port": 3001 }
+}
+```
 
 ```yaml
-# Write this service schematic (blueprint.yaml)
+# blueprints/main.yaml - API definition
 name: "My API"
-mode: "runtime"
-server:
-  port: 3000
-dashboard:
-  enabled: true
-  port: 3001
 endpoints:
   users:
     path: "/users"  
@@ -34,7 +39,7 @@ endpoints:
 
 ```bash
 # Get this working API
-backworks start --config blueprint.yaml
+backworks start
 curl http://localhost:3000/users
 # → {"users": ["John", "Jane"]}
 ```
@@ -51,34 +56,44 @@ git clone https://github.com/devstroop/backworks
 cd backworks
 cargo build --release
 
-# 2. Build the Studio (web interface)
-cd studio
-npm install
-npm run build
-cd ..
+# 2. Create a new project
+./target/release/backworks init my-api
+cd my-api
 
-# 3. Try an example schematic
-cd examples/hello-world
-../../target/release/backworks start --config blueprint.yaml
+# 3. Start the API (uses backworks.json automatically)
+../target/release/backworks start
 
 # 4. Test the API
-curl http://localhost:3002/hello
+curl http://localhost:3000/hello
 
-# 5. View Studio dashboard
-open http://localhost:3003
+# 5. View dashboard
+open http://localhost:3001
+```
+
+### **Try an Existing Example**
+```bash
+# Navigate to an example
+cd examples/hello-world
+
+# Start with project structure
+../../target/release/backworks start
+
+# Or use legacy single file (backward compatible)
+../../target/release/backworks start --config blueprint.yaml
 ```
 
 ---
 
 ## 📋 **Core Features**
 
-- **🎯 Declarative Design** - Service schematics become your backend
+- **🎯 Project-Based Architecture** - Organized blueprints with metadata
 - **⚡ Runtime Execution** - JavaScript handlers for business logic  
-- **🎨 Studio Interface** - Visual blueprint designer and API testing tools
+- **🔌 Plugin System** - Dependencies managed like npm packages
 - **📊 Built-in Dashboard** - Real-time API monitoring and request logs
 - **🚀 Zero Dependencies** - Single Rust binary with integrated web interface
 - **🔄 Hot Reload** - Blueprint changes reflect immediately
-- **🛡️ Error Handling** - Robust error handling and status reporting
+- **🛡️ Security Profiles** - Target-specific compilation with secret management
+- **📱 Multi-Target** - Web API, desktop app, mobile app from same blueprint
 
 ---
 
@@ -90,24 +105,25 @@ open http://localhost:3003
 | [`blog-api`](./examples/blog-api/) | Blog with posts & comments | ⭐⭐⭐ |
 | [`task-manager`](./examples/task-manager/) | Complete business app | ⭐⭐⭐⭐ |
 
-Each template shows the **Service Schematic → API** transformation in action.
+Each template shows the **Project Structure → API** transformation in action.
 
 ---
 
 ## 🏗️ **Architecture**
 
 ```
-Service Schematic (Blueprint) → Backworks Engine → HTTP API + Dashboard
+Project Structure (backworks.json + blueprints/) → Backworks Engine → HTTP API + Dashboard
 ```
 
-- **Declarative-First** - Your service design defines everything
+- **Project-Based** - Organized blueprints with metadata (like npm/cargo projects)
+- **Plugin Dependencies** - External capabilities via dependency management
+- **Multi-File Blueprints** - Organized by feature (endpoints/, database.yaml, ui/)
 - **Runtime Handlers** - JavaScript for custom business logic
+- **Security Compilation** - Target-specific builds with secret management
 - **Integrated Monitoring** - Dashboard shows real-time metrics and logs
-- **Simple Deployment** - One process, two ports (API + Dashboard)
-- **Plugin Architecture** - Extensible design for future enhancements
 
-**Current Implementation:** Runtime mode with JavaScript execution
-**Planned Features:** Database integration, Proxy mode, Plugin system
+**Current Implementation:** Project-based runtime with plugin system
+**Backward Compatible:** Single blueprint.yaml files still supported
 
 ---
 
@@ -133,7 +149,12 @@ cargo build --release
 
 ### **Run an Example**
 ```bash
-./target/release/backworks start --config examples/hello-world/blueprint.yaml
+# New project-based approach
+cd examples/hello-world
+../../target/release/backworks start
+
+# Legacy single file (backward compatible)
+../../target/release/backworks start --config blueprint.yaml
 ```
 
 ---
@@ -147,19 +168,20 @@ cargo build --release
 - **Dev/Test Environments** - Quick backend setup
 
 ### **Philosophy:**
-> **"Configuration over Code"** - Simple APIs need zero coding  
-> **"Backend as YAML"** - Your config IS your backend  
+> **"Projects over Files"** - Organized structure scales better  
+> **"Metadata over Magic"** - Explicit configuration in backworks.json  
+> **"Plugins over Frameworks"** - Extend via dependencies, not coupling  
 > **"Developer Joy"** - Idea to API in under 5 minutes
 
 ---
 
 ## 🚀 **What's Next?**
 
-**Current Status:** Runtime mode with JavaScript handlers ✅  
-**In Development:** Configuration validation, better error handling  
-**Future Roadmap:** Database integration, Proxy mode, Plugin system
+**Current Status:** Project-based architecture with plugin system ✅  
+**In Development:** Security compilation, multi-target builds  
+**Future Roadmap:** UI framework integration, marketplace plugins, cloud deployment
 
-**Goal:** Make backend development as simple as writing configuration.
+**Goal:** Make backend development as organized and extensible as modern frontend development.
 
 ---
 

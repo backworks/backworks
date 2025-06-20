@@ -1,0 +1,143 @@
+name: "Advanced Proxy API"
+description: "Proxy example demonstrating JavaScript transformations with declarative proxy config"
+
+endpoints:
+  # Proxy with JavaScript transformation handlers
+  - path: "/api/test"
+    method: GET
+    description: "HTTPBin proxy with JavaScript response transformation"
+    proxy:
+      target: "https://httpbin.org"
+      path_rewrite: "/get"
+      transform:
+        response:
+          handler: "./handlers/response-transform.js"
+    
+  - path: "/posts/{id}"
+    method: GET
+    description: "JSONPlaceholder proxy with JavaScript transformations"
+    proxy:
+      target: "https://jsonplaceholder.typicode.com"
+      transform:
+        request:
+          handler: "./handlers/request-transform.js"
+        response:
+          handler: "./handlers/post-transform.js"
+    
+  - path: "/posts"
+    method: [GET, POST, PUT]
+    description: "Posts CRUD with proxy and external transformations"
+    proxy:
+      target: "https://jsonplaceholder.typicode.com"
+      load_balancing:
+        algorithm: "RoundRobin"
+      transform:
+        request:
+          handler: "./handlers/request-transform.js"
+        response:
+          handler: "./handlers/response-transform.js"
+    
+  # Proxy with inline JavaScript transformations
+  - path: "/api/users"
+    method: GET
+    description: "Users proxy with inline transformation functions"
+    proxy:
+      target: "https://jsonplaceholder.typicode.com"
+      path_rewrite: "/users"
+      transform:
+        request:
+          handler: |
+            function transform(request) {
+              // Add custom headers to outgoing request
+              request.headers = request.headers || {};
+              request.headers['X-Proxy-Source'] = 'backworks-advanced-proxy';
+              request.headers['X-Request-Time'] = new Date().toISOString();
+              return request;
+            }
+        response:
+          handler: |
+            function transform(response) {
+              // Transform response data inline
+              if (response.body && Array.isArray(response.body)) {
+                response.body = {
+                  users: response.body.map(user => ({
+                    id: user.id,
+                    name: user.name,
+                    username: user.username,
+                    email: user.email,
+                    website: user.website,
+                    // Add computed fields using inline logic
+                    profile_url: `/users/${user.id}`,
+                    avatar_url: `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.username}`
+                  })),
+                  metadata: {
+                    total: response.body.length,
+                    transformed_at: new Date().toISOString(),
+                    transform_type: 'inline'
+                  }
+                };
+              }
+              
+              // Add custom response headers
+              response.headers = response.headers || {};
+              response.headers['X-Transformed'] = 'true';
+              response.headers['X-Transform-Type'] = 'inline';
+              
+              return response;
+            }
+  
+  # Data aggregation using regular handler (not proxy)
+  - path: "/api/dashboard"
+    method: GET
+    handler: "./handlers/dashboard-aggregator.js"
+    description: "Multi-source data aggregation (not proxy, pure handler)"
+    
+  # Health check with inline handler (not proxy)
+  - path: "/health"
+    method: GET
+    description: "Health check with inline handler"
+    handler: |
+      function handler(req, res) {
+        return {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: {
+            status: "healthy",
+            timestamp: new Date().toISOString(),
+            proxy_targets: [
+              "https://httpbin.org",
+              "https://jsonplaceholder.typicode.com"
+            ],
+            handler_type: "inline",
+            uptime: process.uptime ? Math.floor(process.uptime()) : "unknown",
+            example_type: "advanced-proxy"
+          }
+        };
+      }
+      
+  # Health check with simple inline handler
+  - path: "/health"
+    method: GET
+    description: "Health check with inline handler"
+    handler: |
+      function handler(req, res) {
+        return {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: {
+            status: "healthy",
+            timestamp: new Date().toISOString(),
+            proxy_targets: [
+              "https://httpbin.org",
+              "https://jsonplaceholder.typicode.com"
+            ],
+            handler_type: "inline",
+            uptime: process.uptime ? Math.floor(process.uptime()) : "unknown",
+            example_type: "advanced-proxy"
+          }
+        };
+      }

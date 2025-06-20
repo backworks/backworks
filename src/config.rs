@@ -1,4 +1,8 @@
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::path::PathBuf;
+use crate::error::{BackworksError, Result};
+use crate::plugin::PluginConfig;
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub enum ExecutionMode {
@@ -13,10 +17,127 @@ pub enum ExecutionMode {
     Plugin,
 }
 
-use std::collections::HashMap;
-use std::path::PathBuf;
-use crate::error::{BackworksError, Result};
-use crate::plugin::PluginConfig;
+/// Project metadata structure (package.json or backworks.json)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProjectMetadata {
+    pub name: String,
+    pub version: String,
+    pub description: Option<String>,
+    pub author: Option<String>,
+    pub license: Option<String>,
+    
+    // npm-style fields
+    #[serde(default)]
+    pub main: Option<String>,
+    #[serde(default)]
+    pub homepage: Option<String>,
+    #[serde(default)]
+    pub repository: Option<String>,
+    #[serde(default)]
+    pub keywords: Vec<String>,
+    
+    // Backworks-specific fields
+    #[serde(rename = "type")]
+    pub project_type: Option<String>,
+    
+    #[serde(default = "default_entrypoint")]
+    pub entrypoint: String,
+    
+    #[serde(default)]
+    pub blueprints: HashMap<String, String>,
+    
+    #[serde(default)]
+    pub server: ServerConfig,
+    
+    #[serde(default)]
+    pub dashboard: Option<DashboardConfig>,
+    
+    #[serde(default)]
+    pub dependencies: HashMap<String, String>,
+    
+    #[serde(default)]
+    pub plugins: HashMap<String, ProjectPluginConfig>,
+    
+    #[serde(default)]
+    pub scripts: HashMap<String, String>,
+    
+    #[serde(default)]
+    pub targets: HashMap<String, BuildTarget>,
+    
+    #[serde(default)]
+    pub security: Option<SecurityProfiles>,
+    
+    #[serde(default)]
+    pub export: Option<ExportConfig>,
+    
+    // Backworks config section for package.json
+    #[serde(default)]
+    pub backworks: Option<BackworksSection>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BackworksSection {
+    #[serde(default = "default_entrypoint")]
+    pub entrypoint: String,
+    
+    #[serde(default)]
+    pub server: Option<ServerConfig>,
+    
+    #[serde(default)]
+    pub dashboard: Option<DashboardConfig>,
+    
+    #[serde(default)]
+    pub plugins: HashMap<String, ProjectPluginConfig>,
+    
+    #[serde(default)]
+    pub targets: HashMap<String, BuildTarget>,
+    
+    #[serde(default)]
+    pub security: Option<SecurityProfiles>,
+}
+
+fn default_entrypoint() -> String {
+    "blueprints/main.yaml".to_string()
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProjectPluginConfig {
+    pub config: HashMap<String, serde_json::Value>,
+    
+    #[serde(default)]
+    pub hooks: Vec<String>,
+    
+    #[serde(default)]
+    pub exclude_paths: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BuildTarget {
+    pub enabled: bool,
+    pub profile: String,
+    pub output: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SecurityProfiles {
+    pub profiles: HashMap<String, SecurityProfile>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SecurityProfile {
+    pub strip_secrets: bool,
+    pub enable_debug: bool,
+    pub verbose_logging: bool,
+    pub obfuscate_internals: Option<bool>,
+    pub enable_rate_limiting: Option<bool>,
+    pub require_https: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExportConfig {
+    pub format: String,
+    pub output: String,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BackworksConfig {
@@ -694,7 +815,7 @@ pub async fn load_config(path: &PathBuf) -> Result<BackworksConfig> {
     Ok(config)
 }
 
-fn validate_config(config: &BackworksConfig) -> Result<()> {
+pub fn validate_config(config: &BackworksConfig) -> Result<()> {
     // Basic validation
     if config.name.is_empty() {
         return Err(BackworksError::config("API name cannot be empty"));
@@ -740,4 +861,429 @@ fn validate_config(config: &BackworksConfig) -> Result<()> {
     }
     
     Ok(())
+}
+
+impl ProjectMetadata {
+    /// Load project metadata from backworks.json
+    pub fn load_from_file(path: &PathBuf) -> Result<Self> {
+        let content = std::fs::read_to_string(path)
+            .map_err(|e| BackworksError::config(format!("Failed to read backworks.json: {}", e)))?;
+        
+        let metadata: ProjectMetadata = serde_json::from_str(&content)
+            .map_err(|e| BackworksError::config(format!("Failed to parse backworks.json: {}", e)))?;
+        
+        Ok(metadata)
+    }
+    
+    /// Load and merge all blueprints according to project metadata
+    pub fn load_merged_config(&self, project_dir: &PathBuf) -> Result<BackworksConfig> {
+        let mut config = self.load_main_blueprint(project_dir)?;
+        
+        // Load additional blueprint files
+        for (key, path) in &self.blueprints {
+            if key != "main" {
+                self.merge_blueprint_file(&mut config, project_dir, path)?;
+            }
+        }
+        
+        // Apply project-level overrides
+        self.apply_project_overrides(&mut config)?;
+        
+        Ok(config)
+    }
+    
+    fn get_entrypoint(&self) -> &str {
+        // For package.json, check backworks section first
+        if let Some(ref backworks) = self.backworks {
+            &backworks.entrypoint
+        } else {
+            &self.entrypoint
+        }
+    }
+    
+    fn get_server_config(&self) -> &ServerConfig {
+        // For package.json, check backworks section first
+        if let Some(ref backworks) = self.backworks {
+            backworks.server.as_ref().unwrap_or(&self.server)
+        } else {
+            &self.server
+        }
+    }
+    
+    fn get_dashboard_config(&self) -> &Option<DashboardConfig> {
+        // For package.json, check backworks section first
+        if let Some(ref backworks) = self.backworks {
+            &backworks.dashboard
+        } else {
+            &self.dashboard
+        }
+    }
+    
+    fn get_plugins(&self) -> &HashMap<String, ProjectPluginConfig> {
+        // For package.json, check backworks section first
+        if let Some(ref backworks) = self.backworks {
+            &backworks.plugins
+        } else {
+            &self.plugins
+        }
+    }
+    
+    fn load_main_blueprint(&self, project_dir: &PathBuf) -> Result<BackworksConfig> {
+        let main_path = project_dir.join(self.get_entrypoint());
+        
+        // Try loading as new format first
+        let content = std::fs::read_to_string(&main_path)
+            .map_err(|e| BackworksError::config(format!("Failed to read blueprint file: {}", e)))?;
+        
+        // Try new array-based format first
+        if let Ok(new_config) = serde_yaml::from_str::<NewBlueprintConfig>(&content) {
+            Ok(new_config.to_backworks_config())
+        } else {
+            // Fallback to legacy format
+            tokio::task::block_in_place(|| {
+                tokio::runtime::Handle::current().block_on(async {
+                    load_config(&main_path).await
+                })
+            })
+        }
+    }
+    
+    fn merge_blueprint_file(&self, config: &mut BackworksConfig, project_dir: &PathBuf, path: &str) -> Result<()> {
+        let blueprint_path = project_dir.join(path);
+        
+        if blueprint_path.is_dir() {
+            // Load all YAML files in directory
+            self.merge_blueprint_directory(config, &blueprint_path)?;
+        } else {
+            // Load single file
+            let additional_config = tokio::task::block_in_place(|| {
+                tokio::runtime::Handle::current().block_on(async {
+                    load_config(&blueprint_path).await
+                })
+            })?;
+            self.merge_configs(config, additional_config);
+        }
+        
+        Ok(())
+    }
+    
+    fn merge_blueprint_directory(&self, config: &mut BackworksConfig, dir_path: &PathBuf) -> Result<()> {
+        if !dir_path.exists() {
+            return Ok(()); // Directory doesn't exist, skip
+        }
+        
+        let entries = std::fs::read_dir(dir_path)
+            .map_err(|e| BackworksError::config(format!("Cannot read directory {}: {}", dir_path.display(), e)))?;
+        
+        for entry in entries {
+            let entry = entry.map_err(|e| BackworksError::config(format!("Error reading directory entry: {}", e)))?;
+            let path = entry.path();
+            
+            if path.extension().and_then(|s| s.to_str()) == Some("yaml") || 
+               path.extension().and_then(|s| s.to_str()) == Some("yml") {
+                let additional_config = tokio::task::block_in_place(|| {
+                    tokio::runtime::Handle::current().block_on(async {
+                        load_config(&path).await
+                    })
+                })?;
+                self.merge_configs(config, additional_config);
+            }
+        }
+        
+        Ok(())
+    }
+    
+    fn merge_configs(&self, base: &mut BackworksConfig, additional: BackworksConfig) {
+        // Merge endpoints
+        base.endpoints.extend(additional.endpoints);
+        
+        // Merge plugins
+        base.plugins.extend(additional.plugins);
+        
+        // Merge global headers
+        base.global_headers.extend(additional.global_headers);
+        
+        // Override other fields if they exist in additional config
+        if let Some(database) = additional.database {
+            base.database = Some(database);
+        }
+        
+        if let Some(dashboard) = additional.dashboard {
+            base.dashboard = Some(dashboard);
+        }
+        
+        if let Some(apis) = additional.apis {
+            base.apis = Some(apis);
+        }
+        
+        if let Some(cache) = additional.cache {
+            base.cache = Some(cache);
+        }
+        
+        if let Some(security) = additional.security {
+            base.security = Some(security);
+        }
+        
+        if let Some(monitoring) = additional.monitoring {
+            base.monitoring = Some(monitoring);
+        }
+    }
+    
+    fn apply_project_overrides(&self, config: &mut BackworksConfig) -> Result<()> {
+        // Apply server config from project metadata
+        config.server = self.get_server_config().clone();
+        
+        // Apply dashboard config
+        config.dashboard = self.get_dashboard_config().clone();
+        
+        // Convert project plugins to config plugins
+        for (plugin_name, project_plugin) in self.get_plugins() {
+            let plugin_config = PluginConfig {
+                enabled: true,
+                config: serde_json::Value::Object(
+                    project_plugin.config.iter()
+                        .map(|(k, v)| (k.clone(), v.clone()))
+                        .collect()
+                ),
+            };
+            config.plugins.insert(plugin_name.clone(), plugin_config);
+        }
+        
+        Ok(())
+    }
+}
+
+/// Detect project structure and load appropriate configuration
+pub fn load_project_config(path: Option<PathBuf>) -> Result<(Option<ProjectMetadata>, BackworksConfig)> {
+    let current_dir = std::env::current_dir()
+        .map_err(|e| BackworksError::config(format!("Cannot get current directory: {}", e)))?;
+    
+    if let Some(config_path) = path {
+        // Explicit config file provided
+        let filename = config_path.file_name().and_then(|s| s.to_str()).unwrap_or("");
+        if filename == "package.json" || filename == "backworks.json" {
+            // Load project-based configuration
+            let metadata = ProjectMetadata::load_from_file(&config_path)?;
+            let project_dir = config_path.parent().unwrap_or(&current_dir).to_path_buf();
+            let config = metadata.load_merged_config(&project_dir)?;
+            Ok((Some(metadata), config))
+        } else {
+            // Load legacy single file
+            let config = tokio::task::block_in_place(|| {
+                tokio::runtime::Handle::current().block_on(async {
+                    load_config(&config_path).await
+                })
+            })?;
+            Ok((None, config))
+        }
+    } else {
+        // Auto-detect project structure
+        // Try package.json first (preferred)
+        let package_file = current_dir.join("package.json");
+        if package_file.exists() {
+            // Project-based structure with package.json
+            let metadata = ProjectMetadata::load_from_file(&package_file)?;
+            let config = metadata.load_merged_config(&current_dir)?;
+            Ok((Some(metadata), config))
+        } else {
+            // Fallback to backworks.json for compatibility
+            let project_file = current_dir.join("backworks.json");
+            if project_file.exists() {
+                // Project-based structure
+                let metadata = ProjectMetadata::load_from_file(&project_file)?;
+                let config = metadata.load_merged_config(&current_dir)?;
+                Ok((Some(metadata), config))
+            } else {
+                // Look for legacy blueprint.yaml
+                let legacy_file = current_dir.join("blueprint.yaml");
+                if legacy_file.exists() {
+                    let config = tokio::task::block_in_place(|| {
+                        tokio::runtime::Handle::current().block_on(async {
+                            load_config(&legacy_file).await
+                        })
+                    })?;
+                    Ok((None, config))
+                } else {
+                    return Err(BackworksError::config(
+                        "No configuration found. Expected 'package.json', 'backworks.json' or 'blueprint.yaml'".to_string()
+                    ));
+                }
+            }
+        }
+    }
+}
+
+/// New blueprint format with array-based endpoints
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NewBlueprintConfig {
+    pub name: String,
+    pub description: Option<String>,
+    pub version: Option<String>,
+    
+    // Array-based endpoints (new format)
+    pub endpoints: Vec<NewEndpointConfig>,
+    
+    // Global settings
+    #[serde(default)]
+    pub server: ServerConfig,
+    
+    #[serde(default)]
+    pub dashboard: Option<DashboardConfig>,
+    
+    #[serde(default)]
+    pub plugins: HashMap<String, PluginConfig>,
+    
+    #[serde(default)]
+    pub logging: LoggingConfig,
+}
+
+/// New endpoint configuration for array-based format
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NewEndpointConfig {
+    pub path: String,
+    
+    // Single method or array of methods
+    #[serde(alias = "methods")]
+    pub method: MethodSpec,
+    
+    pub description: Option<String>,
+    
+    // Handler (JavaScript function or file path)
+    pub handler: Option<String>,
+    
+    // Proxy configuration (preserves existing proxy functionality)
+    pub proxy: Option<ProxyConfig>,
+    
+    // Runtime configuration for handlers
+    pub runtime: Option<RuntimeConfig>,
+    
+    // Middleware
+    #[serde(default)]
+    pub middleware: Vec<String>,
+}
+
+/// Method specification - supports both single method and array
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum MethodSpec {
+    Single(String),
+    Multiple(Vec<String>),
+}
+
+impl MethodSpec {
+    pub fn to_vec(&self) -> Vec<String> {
+        match self {
+            MethodSpec::Single(method) => vec![method.clone()],
+            MethodSpec::Multiple(methods) => methods.clone(),
+        }
+    }
+}
+
+impl NewBlueprintConfig {
+    /// Convert new blueprint format to legacy BackworksConfig format
+    pub fn to_backworks_config(self) -> BackworksConfig {
+        let mut endpoints = HashMap::new();
+        
+        // Convert array-based endpoints to map-based endpoints
+        for (index, endpoint) in self.endpoints.into_iter().enumerate() {
+            let endpoint_name = if let Some(last_segment) = endpoint.path.split('/').last() {
+                if last_segment.is_empty() || last_segment.starts_with('{') {
+                    format!("endpoint_{}", index)
+                } else {
+                    last_segment.replace('{', "").replace('}', "")
+                }
+            } else {
+                format!("endpoint_{}", index)
+            };
+            
+            // Create runtime config for handlers
+            let runtime = if let Some(handler) = endpoint.handler {
+                Some(RuntimeConfig {
+                    language: "javascript".to_string(),
+                    handler,
+                    timeout: None,
+                    memory_limit: None,
+                    environment: None,
+                    requirements: None,
+                    working_dir: None,
+                })
+            } else {
+                endpoint.runtime
+            };
+            
+            let legacy_endpoint = EndpointConfig {
+                path: endpoint.path,
+                methods: endpoint.method.to_vec(),
+                description: endpoint.description,
+                mode: Some(if endpoint.proxy.is_some() { 
+                    ExecutionMode::Proxy 
+                } else { 
+                    ExecutionMode::Runtime 
+                }),
+                runtime,
+                database: None,
+                proxy: endpoint.proxy,
+                capture: None,
+                plugin: None,
+                ai_enhanced: None,
+                ai_suggestions: None,
+                apis: None,
+                parameters: None,
+                validation: None,
+                monitoring: None,
+            };
+            
+            endpoints.insert(endpoint_name, legacy_endpoint);
+        }
+        
+        // Determine global mode based on endpoints
+        let has_proxy = endpoints.values().any(|e| e.proxy.is_some());
+        let has_runtime = endpoints.values().any(|e| e.runtime.is_some());
+        
+        let global_mode = if has_proxy && has_runtime {
+            ExecutionMode::Proxy // Mixed mode defaults to proxy
+        } else if has_proxy {
+            ExecutionMode::Proxy
+        } else {
+            ExecutionMode::Runtime
+        };
+        
+        BackworksConfig {
+            name: self.name,
+            description: self.description,
+            version: self.version,
+            mode: global_mode,
+            endpoints,
+            server: self.server,
+            plugins: self.plugins,
+            dashboard: self.dashboard,
+            // Set defaults for other fields
+            database: None,
+            apis: None,
+            cache: None,
+            security: None,
+            monitoring: None,
+            global_headers: HashMap::new(),
+            logging: self.logging,
+        }
+    }
+}
+
+/// Load configuration supporting both new and legacy blueprint formats
+pub async fn load_blueprint_config(path: &PathBuf) -> Result<BackworksConfig> {
+    let content = tokio::fs::read_to_string(path).await
+        .map_err(|e| BackworksError::config(format!("Failed to read blueprint file: {}", e)))?;
+    
+    // Try new array-based format first
+    if let Ok(new_config) = serde_yaml::from_str::<NewBlueprintConfig>(&content) {
+        let config = new_config.to_backworks_config();
+        validate_config(&config)?;
+        Ok(config)
+    } else {
+        // Fallback to legacy format
+        let config: BackworksConfig = serde_yaml::from_str(&content)
+            .map_err(|e| BackworksError::config(format!("Failed to parse blueprint: {}", e)))?;
+        validate_config(&config)?;
+        Ok(config)
+    }
 }

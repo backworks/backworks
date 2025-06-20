@@ -1,0 +1,26 @@
+{
+  "name": "proxy-api",
+  "version": "1.0.0",
+  "description": "Simple proxy API demonstrating basic proxying to external services",
+  "author": "Backworks Team",
+  "license": "MIT",
+  "main": "blueprints/main.yaml",
+  "keywords": ["proxy", "github", "httpbin", "load-balancing"],
+  "scripts": {
+    "dev": "backworks start --watch",
+    "build": "backworks build", 
+    "test": "backworks test",
+    "start": "backworks start"
+  },
+  "backworks": {
+    "entrypoint": "blueprints/main.yaml",
+    "server": {
+      "host": "0.0.0.0",
+      "port": 3010  
+    },
+    "dashboard": {
+      "enabled": true,
+      "port": 3011
+    }
+  }
+}

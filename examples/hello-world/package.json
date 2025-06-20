@@ -1,0 +1,22 @@
+{
+  "name": "hello-world-api",
+  "version": "1.0.0",
+  "description": "The simplest possible Backworks API demonstrating project structure",
+  "main": "blueprints/main.yaml",
+  "scripts": {
+    "dev": "backworks start --watch",
+    "build": "backworks build",
+    "test": "backworks test"
+  },
+  "backworks": {
+    "entrypoint": "blueprints/main.yaml",
+    "server": {
+      "host": "0.0.0.0",
+      "port": 3002
+    },
+    "dashboard": {
+      "enabled": true,
+      "port": 3003
+    }
+  }
+}

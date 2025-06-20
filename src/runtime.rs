@@ -222,12 +222,31 @@ impl RuntimeManager {
     }
     
     async fn execute_javascript_handler(&self, handler_code: &str, request_data: &str) -> BackworksResult<String> {
+        // Determine if this is a file path or inline code
+        let actual_handler_code = if handler_code.starts_with("./") || handler_code.starts_with("../") || handler_code.ends_with(".js") {
+            // This is a file path, read the file content
+            let file_path = if handler_code.starts_with("./") {
+                // Convert relative path to absolute path from current working directory
+                std::env::current_dir()
+                    .map_err(|e| BackworksError::runtime(format!("Failed to get current directory: {}", e)))?
+                    .join(&handler_code[2..]) // Remove "./" prefix
+            } else {
+                std::path::PathBuf::from(handler_code)
+            };
+            
+            tokio::fs::read_to_string(&file_path).await
+                .map_err(|e| BackworksError::runtime(format!("Failed to read handler file {}: {}", file_path.display(), e)))?
+        } else {
+            // This is inline code
+            handler_code.to_string()
+        };
+        
         // Create a wrapper script that handles the function execution
         let wrapper_script = format!(r#"
 // Parse request data
 const request = JSON.parse(process.argv[2] || '{{}}');
 
-// Handler function
+// Handler code
 {}
 
 // Execute handler and output result
@@ -238,7 +257,7 @@ try {{
     console.error('Handler error:', error.message);
     process.exit(1);
 }}
-"#, handler_code);
+"#, actual_handler_code);
 
         // Create a temporary file for the handler
         let temp_file = format!("/tmp/backworks_handler_{}.js", Uuid::new_v4());

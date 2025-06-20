@@ -1,14 +1,37 @@
 # 🎮 Backworks Examples
 
-This directory contains practical examples showing how to use Backworks to create APIs with service schematics.
+This directory contains practical examples showing how to use Backworks to create modern APIs with project-based structure.
 
 ## 📁 Available Examples
 
-| Example | Description | Complexity | Features Demonstrated |
-|---------|-------------|------------|----------------------|
-| [**hello-world**](./hello-world/) | Simplest possible API | ⭐ | Basic endpoints, JavaScript handlers |
-| [**blog-api**](./blog-api/) | Blog with posts & comments | ⭐⭐⭐ | CRUD operations, path parameters |
-| [**task-manager**](./task-manager/) | Complete business app | ⭐⭐⭐⭐ | Complex business logic, validation |
+| Example | Description | Complexity | Handler Types | Features |
+|---------|-------------|------------|---------------|----------|
+| [**hello-world**](./hello-world/) | Simple API basics | ⭐ | Mixed | Basic endpoints, both handler types |
+| [**blog-api**](./blog-api/) | Blog with CRUD operations | ⭐⭐ | Mixed | Path params, external handlers |
+| [**advanced-proxy**](./advanced-proxy/) | Complex proxy patterns | ⭐⭐⭐⭐ | Mixed | Proxy, transformations, aggregation |
+| [**proxy-api**](./proxy-api/) | Simple proxy example | ⭐⭐ | Inline | Basic proxy, load balancing |
+| [**task-manager**](./task-manager/) | Business application | ⭐⭐⭐⭐ | Mixed | Complete CRUD, business logic |
+
+## 🏗️ Modern Project Structure
+
+All examples now use the **modern project-based structure**:
+
+```
+example-project/
+├── package.json              # Project metadata and configuration
+├── blueprints/
+│   └── main.yaml             # API endpoint definitions
+├── handlers/                 # External JavaScript handlers (optional)
+│   ├── handler1.js
+│   └── handler2.js
+└── README.md                 # Documentation
+```
+
+### Key Benefits:
+- **📦 NPM-style metadata**: Standard package.json for project info
+- **🔧 Organized structure**: Clear separation of concerns
+- **⚡ Flexible handlers**: Choose between external files or inline functions
+- **🎯 Modern tooling**: Familiar structure for JavaScript/Node.js developers
 
 ## 🚀 Running Examples
 
@@ -25,8 +48,13 @@ cargo build --release
 # Navigate to example directory
 cd examples/hello-world
 
-# Run the example
-../../target/release/backworks start --config blueprint.yaml
+# Run with npm-style commands
+npm start
+# or
+npm run dev
+
+# Or run directly with Backworks
+../../target/release/backworks start
 
 # Test the API
 curl http://localhost:3002/hello

@@ -1,0 +1,22 @@
+name: "Hello World API"
+description: "The simplest possible Backworks API demonstrating both inline and external handlers"
+
+endpoints:
+  - path: "/hello"
+    method: GET
+    description: "Say hello to the world (inline handler)"
+    handler: |
+      function handler(req, res) {
+        return {
+          status: 200,
+          body: { 
+            message: "Hello from hello-world-api!",
+            timestamp: new Date().toISOString()
+          }
+        };
+      }
+  
+  - path: "/echo"
+    method: POST
+    description: "Echo back the request body (external handler)"
+    handler: "./handlers/echo.js"

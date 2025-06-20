@@ -1,0 +1,84 @@
+{
+  "name": "task-manager",
+  "version": "1.0.0",
+  "description": "A comprehensive task management application",
+  "author": "Backworks Team",
+  "license": "MIT",
+  "main": "blueprints/main.yaml",
+  "scripts": {
+    "dev": "backworks start --watch",
+    "build": "backworks build --target production",
+    "test": "backworks test",
+    "deploy": "backworks deploy --target staging",
+    "migrate": "backworks db migrate"
+  },
+  "dependencies": {
+    "backworks-auth": "^1.0.0",
+    "backworks-postgresql": "^2.1.0",
+    "backworks-rate-limiter": "^1.2.0",
+    "backworks-cors": "^1.0.0",
+    "backworks-logging": "^2.0.0"
+  },
+  "backworks": {
+    "entrypoint": "blueprints/main.yaml",
+    "server": {
+      "host": "0.0.0.0",
+      "port": 3000,
+      "cors": true,
+      "middleware": ["auth", "logging", "rate_limit"]
+    },
+    "dashboard": {
+      "enabled": true,
+      "port": 3001,
+      "auth": false
+    },
+    "plugins": {
+      "backworks-auth": {
+        "config": {
+          "secret": "${JWT_SECRET}",
+          "expiry": "24h",
+          "algorithms": ["HS256"]
+        },
+        "hooks": ["before_request"],
+        "exclude_paths": ["/api/auth/login", "/api/auth/register", "/health"]
+      },
+      "backworks-rate-limiter": {
+        "config": {
+          "max_requests": 100,
+          "window_seconds": 3600,
+          "per_ip": true
+        },
+        "hooks": ["before_request"]
+      }
+    },
+    "targets": {
+      "web_api": {
+        "enabled": true,
+        "profile": "server",
+        "output": "target/web_api/"
+      },
+      "desktop_app": {
+        "enabled": false,
+        "profile": "client",
+        "output": "target/desktop_app/"
+      }
+    },
+    "security": {
+      "profiles": {
+        "development": {
+          "strip_secrets": false,
+          "enable_debug": true,
+          "verbose_logging": true
+        },
+        "production": {
+          "strip_secrets": true,
+          "enable_debug": false,
+          "verbose_logging": false,
+          "obfuscate_internals": true,
+          "enable_rate_limiting": true,
+          "require_https": true
+        }
+      }
+    }
+  }
+}

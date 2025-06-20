@@ -1,0 +1,62 @@
+name: "Task Manager"
+description: "Multi-file task management application"
+
+endpoints:
+  health:
+    path: "/health"
+    methods: ["GET"]
+    description: "Health check endpoint"
+    runtime:
+      language: "javascript"
+      handler: |
+        function handler(req, res) {
+          return {
+            status: 200,
+            body: { 
+              status: "ok", 
+              service: "task-manager",
+              timestamp: new Date().toISOString() 
+            }
+          };
+        }
+  
+  list_tasks:
+    path: "/api/tasks"
+    methods: ["GET"]
+    description: "List all tasks"
+    runtime:
+      language: "javascript"
+      handler: |
+        function handler(req, res) {
+          // Mock task data
+          const tasks = [
+            { id: 1, title: "Complete project", completed: false },
+            { id: 2, title: "Review code", completed: true }
+          ];
+          return {
+            status: 200,
+            body: { tasks }
+          };
+        }
+  
+  create_task:
+    path: "/api/tasks"
+    methods: ["POST"]
+    description: "Create a new task"
+    runtime:
+      language: "javascript"
+      handler: |
+        function handler(req, res) {
+          const { title, description } = req.body;
+          const newTask = {
+            id: Date.now(),
+            title,
+            description,
+            completed: false,
+            created_at: new Date().toISOString()
+          };
+          return {
+            status: 201,
+            body: { task: newTask }
+          };
+        }

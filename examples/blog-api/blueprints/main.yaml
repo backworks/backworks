@@ -1,0 +1,165 @@
+name: "Blog API"
+description: "A complete blog backend demonstrating both inline and external handlers"
+
+endpoints:
+  posts:
+    path: "/posts"
+    methods: ["GET", "POST"]
+    description: "Blog posts management (inline handler for simplicity)"
+    runtime:
+      language: "javascript"
+      handler: |
+        function handler(req, res) {
+          const posts = [
+            {
+              id: 1,
+              title: "Getting Started with Backworks",
+              content: "Backworks makes it easy to create APIs from YAML configuration. This post shows you how to get started with your first API.",
+              author_id: 1,
+              author_name: "John Doe",
+              created_at: "2025-06-19T10:00:00Z",
+              tags: ["tutorial", "getting-started"],
+              published: true
+            },
+            {
+              id: 2,
+              title: "Advanced YAML Patterns",
+              content: "Learn how to structure complex APIs using advanced YAML patterns and JavaScript handlers.",
+              author_id: 2,
+              author_name: "Jane Smith",
+              created_at: "2025-06-19T09:00:00Z",
+              tags: ["advanced", "yaml"],
+              published: true
+            },
+            {
+              id: 3,
+              title: "Building Real-time APIs",
+              content: "Explore how to build real-time APIs with Backworks and integrate them with your frontend applications.",
+              author_id: 1,
+              author_name: "John Doe",
+              created_at: "2025-06-19T08:00:00Z",
+              tags: ["real-time", "integration"],
+              published: false
+            }
+          ];
+          
+          if (req.method === 'GET') {
+            // Filter by published status if requested
+            const showUnpublished = req.query_params?.include_unpublished === 'true';
+            let filteredPosts = showUnpublished ? posts : posts.filter(p => p.published);
+            
+            // Filter by tag if requested
+            const tag = req.query_params?.tag;
+            if (tag) {
+              filteredPosts = filteredPosts.filter(p => p.tags.includes(tag));
+            }
+            
+            return {
+              status: 200,
+              body: {
+                posts: filteredPosts,
+                count: filteredPosts.length,
+                total: posts.length
+              }
+            };
+          } else if (req.method === 'POST') {
+            if (!req.body?.title || !req.body?.content) {
+              return {
+                status: 400,
+                body: { 
+                  error: 'Validation failed',
+                  message: 'Title and content are required' 
+                }
+              };
+            }
+            
+            const newPost = {
+              id: posts.length + 1,
+              title: req.body.title,
+              content: req.body.content,
+              author_id: req.body.author_id || 1,
+              author_name: req.body.author_name || "Anonymous",
+              created_at: new Date().toISOString(),
+              tags: req.body.tags || [],
+              published: req.body.published || false
+            };
+            
+            return {
+              status: 201,
+              body: {
+                message: 'Post created successfully',
+                post: newPost
+              }
+            };
+          }
+        }
+
+  post_detail:
+    path: "/posts/{id}"
+    methods: ["GET", "PUT", "DELETE"]
+    description: "Individual post operations (external handler for complex logic)"
+    runtime:
+      language: "javascript"
+      handler: "./handlers/post-detail.js"
+
+  comments:
+    path: "/posts/{post_id}/comments"
+    methods: ["GET", "POST"]
+    description: "Comments on posts (external handler for reusability)"
+    runtime:
+      language: "javascript"
+      handler: "./handlers/comments.js"
+
+  authors:
+    path: "/authors"
+    methods: ["GET"]
+    description: "Blog authors (inline handler for simple data)"
+    runtime:
+      language: "javascript"
+      handler: |
+        function handler(req, res) {
+          const authors = [
+            {
+              id: 1,
+              name: "John Doe",
+              email: "john@example.com",
+              bio: "Full-stack developer and tech blogger with 10+ years of experience",
+              post_count: 15,
+              joined_at: "2024-01-15T00:00:00Z",
+              website: "https://johndoe.dev",
+              social: {
+                twitter: "@johndoe",
+                github: "johndoe"
+              }
+            },
+            {
+              id: 2,
+              name: "Jane Smith",
+              email: "jane@example.com",
+              bio: "Frontend specialist and UI/UX designer passionate about accessible web design",
+              post_count: 8,
+              joined_at: "2024-03-20T00:00:00Z",
+              website: "https://janesmith.design",
+              social: {
+                twitter: "@janesmith",
+                github: "janesmith"
+              }
+            }
+          ];
+          
+          return {
+            status: 200,
+            body: {
+              authors: authors,
+              count: authors.length
+            }
+          };
+        }
+
+  search:
+    path: "/search"
+    methods: ["GET"]
+    description: "Search posts and comments (external handler for complex search logic)"
+    runtime:
+      language: "javascript"
+      handler: "./handlers/search.js"

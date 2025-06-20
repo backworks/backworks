@@ -1,0 +1,26 @@
+{
+  "name": "blog-api",
+  "version": "1.0.0",
+  "description": "A complete blog backend with posts, comments, and users",
+  "author": "Backworks Team",
+  "license": "MIT",
+  "main": "blueprints/main.yaml",
+  "keywords": ["blog", "api", "cms", "backworks"],
+  "scripts": {
+    "dev": "backworks start --watch",
+    "build": "backworks build",
+    "test": "backworks test",
+    "start": "backworks start"
+  },
+  "backworks": {
+    "entrypoint": "blueprints/main.yaml",
+    "server": {
+      "host": "0.0.0.0",
+      "port": 3004
+    },
+    "dashboard": {
+      "enabled": true,
+      "port": 3005
+    }
+  }
+}

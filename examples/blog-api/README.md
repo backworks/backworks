@@ -1,45 +1,32 @@
-# Blog API Example
+# 📝 Blog API
 
-A comprehensive blog backend API demonstrating multiple endpoints, path parameters, and CRUD operations.
+A comprehensive blog backend API demonstrating **both inline and external handler approaches** with Backworks.
 
-## 🚀 Features
+## 🎯 What This Demonstrates
 
-- **Posts Management** - Create, read, update, delete blog posts
-- **Comments System** - Add and view comments on posts
-- **Author Profiles** - View blog author information
-- **Search Functionality** - Search through posts and comments
-- **Filtering & Querying** - Filter posts by tags, published status
-- **Input Validation** - Proper error handling and validation
+This example shows a realistic blog API with mixed handler strategies:
 
-## 📋 Endpoints
+### 📄 **Inline Handlers**
+- **`/posts`** - Simple CRUD operations for blog posts
+- **`/authors`** - Static author data (perfect for inline)
 
-### Posts
-- `GET /posts` - List all posts
-  - Query params: `?tag=tutorial`, `?include_unpublished=true`
-- `POST /posts` - Create new post
-- `GET /posts/{id}` - Get specific post
-- `PUT /posts/{id}` - Update post
-- `DELETE /posts/{id}` - Delete post
+### 📁 **External Handlers**
+- **`/posts/{id}`** - Complex post operations (`handlers/post-detail.js`)
+- **`/posts/{post_id}/comments`** - Comment management (`handlers/comments.js`)
+- **`/search`** - Advanced search logic (`handlers/search.js`)
 
-### Comments
-- `GET /posts/{post_id}/comments` - Get comments for a post
-- `POST /posts/{post_id}/comments` - Add comment to post
+## �️ Project Structure
 
-### Authors
-- `GET /authors` - List all authors
-
-### Search
-- `GET /search?q=keyword` - Search posts and comments
-
-## 🏃‍♂️ Running the Example
-
-```bash
-# From the backworks root directory
-../../target/release/backworks start --config api.yaml
-
-# The API will be available at:
-# - API: http://localhost:3004
-# - Dashboard: http://localhost:3005
+```
+blog-api/
+├── package.json              # npm-style project metadata
+├── blueprints/
+│   └── main.yaml             # API blueprint with mixed handlers
+├── handlers/
+│   ├── post-detail.js        # Complex CRUD operations
+│   ├── comments.js           # Comment management
+│   └── search.js             # Advanced search functionality
+└── README.md
 ```
 
 ## 🧪 Testing the API
