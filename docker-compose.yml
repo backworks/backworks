@@ -1,0 +1,74 @@
+version: '3.8'
+
+services:
+  backworks:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+      - "3001:3001"  # Dashboard
+    environment:
+      - RUST_LOG=info
+      - BACKWORKS_HOST=0.0.0.0
+      - BACKWORKS_PORT=3000
+      - BACKWORKS_DASHBOARD_PORT=3001
+    volumes:
+      - ./examples:/app/examples:ro
+      - ./projects:/app/projects  # Mount point for user projects
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Optional: Redis for caching/session storage
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
+  # Optional: PostgreSQL for persistent storage
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: backworks
+      POSTGRES_USER: backworks
+      POSTGRES_PASSWORD: backworks_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    restart: unless-stopped
+
+  # Development environment with hot reload
+  backworks-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    profiles:
+      - dev
+    ports:
+      - "3000:3000"
+      - "3001:3001"
+    environment:
+      - RUST_LOG=debug
+      - BACKWORKS_HOT_RELOAD=true
+    volumes:
+      - .:/app
+      - cargo_cache:/usr/local/cargo/registry
+      - target_cache:/app/target
+    command: ["cargo", "watch", "-x", "run -- start"]
+
+volumes:
+  redis_data:
+  postgres_data:
+  cargo_cache:
+  target_cache:

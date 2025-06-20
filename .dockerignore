@@ -1,0 +1,42 @@
+# Docker ignore file for Backworks
+target/
+.git/
+.github/
+*.log
+*.tmp
+.env
+.env.*
+node_modules/
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Test artifacts
+/tmp/
+*.test
+coverage.txt
+*.profraw
+
+# OS specific
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Backup files
+*.bak
+*.backup
+*~
+
+# Logs
+*.log
+logs/
+
+# Runtime files
+*.pid
+*.sock
