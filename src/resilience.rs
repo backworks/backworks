@@ -410,3 +410,9 @@ pub enum ResilientExecutionError {
     #[error("Circuit breaker error: {0}")]
     CircuitBreakerError(CircuitBreakerError),
 }
+
+impl From<ResilientExecutionError> for crate::error::BackworksError {
+    fn from(err: ResilientExecutionError) -> Self {
+        crate::error::BackworksError::plugin(err.to_string())
+    }
+}

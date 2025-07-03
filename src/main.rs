@@ -3,7 +3,7 @@ use std::path::PathBuf;
 
 use backworks::{
     BackworksEngine, BackworksError, Result,
-    config, capture, analyzer
+    config
 };
 
 #[derive(Parser)]
@@ -71,8 +71,8 @@ enum Commands {
         #[arg(long)]
         from: PathBuf,
         
-        /// Target format (package.json)
-        #[arg(long, default_value = "package.json")]
+        /// Target format (yaml)
+        #[arg(long, default_value = "yaml")]
         to: String,
     },
     
@@ -164,14 +164,10 @@ async fn main() -> Result<()> {
 async fn start_server(config_path: Option<PathBuf>, port: Option<u16>, dashboard_port: Option<u16>, watch: bool) -> Result<()> {
     println!("🚀 Starting Backworks...");
     
-    // Load project configuration (auto-detects project vs single file)
-    let (metadata, mut config) = config::load_project_config(config_path)?;
+    // Load YAML configuration
+    let mut config = config::load_project_config(config_path)?;
     
-    if let Some(ref metadata) = metadata {
-        println!("✅ Project loaded: {} v{}", metadata.name, metadata.version);
-    } else {
-        println!("✅ Configuration loaded: {}", config.name);
-    }
+    println!("✅ Configuration loaded: {}", config.name);
     
     // Override ports if specified
     if let Some(p) = port {
@@ -231,10 +227,10 @@ async fn init_project(name: String, template: String) -> Result<()> {
 }
 
 fn create_project_structure(project_dir: &PathBuf, name: &str, template: &str) -> Result<()> {
-    // Create package.json
-    let metadata = create_project_metadata(name, template);
-    let metadata_path = project_dir.join("package.json");
-    std::fs::write(&metadata_path, metadata)
+    // Create main project configuration (package.json)
+    let config_content = create_project_config(name, template);
+    let config_path = project_dir.join("package.json");
+    std::fs::write(&config_path, config_content)
         .map_err(|e| BackworksError::config(format!("Failed to write package.json: {}", e)))?;
     
     // Create blueprints directory
@@ -268,7 +264,7 @@ fn create_project_structure(project_dir: &PathBuf, name: &str, template: &str) -
     Ok(())
 }
 
-fn create_project_metadata(name: &str, template: &str) -> String {
+fn create_project_config(name: &str, template: &str) -> String {
     match template {
         "api" => format!(r#"{{
   "name": "{}",
@@ -284,26 +280,8 @@ fn create_project_metadata(name: &str, template: &str) -> String {
     "backworks-auth": "^1.0.0",
     "backworks-postgresql": "^2.1.0"
   }},
-  "backworks": {{
-    "entrypoint": "blueprints/main.yaml",
-    "server": {{
-      "host": "0.0.0.0",
-      "port": 3000
-    }},
-    "dashboard": {{
-      "enabled": true,
-      "port": 3001
-    }},
-    "plugins": {{
-      "backworks-auth": {{
-        "config": {{
-          "secret": "${{JWT_SECRET}}",
-          "expiry": "24h"
-        }},
-        "hooks": ["before_request"]
-      }}
-    }}
-  }}
+  "keywords": ["api", "rest", "backworks", "authentication"],
+  "license": "MIT"
 }}"#, name),
         "webapp" => format!(r#"{{
   "name": "{}",
@@ -315,22 +293,8 @@ fn create_project_metadata(name: &str, template: &str) -> String {
     "build": "backworks build --target production",
     "export": "backworks export --format static"
   }},
-  "backworks": {{
-    "entrypoint": "blueprints/main.yaml",
-    "blueprints": {{
-      "main": "blueprints/main.yaml",
-      "endpoints": "blueprints/endpoints/",
-      "ui": "blueprints/ui/"
-    }},
-    "server": {{
-      "host": "0.0.0.0",
-      "port": 3000
-    }},
-    "dashboard": {{
-      "enabled": true,
-      "port": 3001
-    }}
-  }}
+  "keywords": ["webapp", "web", "backworks", "application"],
+  "license": "MIT"
 }}"#, name),
         _ => format!(r#"{{
   "name": "{}",
@@ -339,20 +303,11 @@ fn create_project_metadata(name: &str, template: &str) -> String {
   "main": "blueprints/main.yaml",
   "scripts": {{
     "dev": "backworks start --watch",
-    "build": "backworks build",
+    "build": "backworks build --target production",
     "test": "backworks test"
   }},
-  "backworks": {{
-    "entrypoint": "blueprints/main.yaml",
-    "server": {{
-      "host": "0.0.0.0",
-      "port": 3000
-    }},
-    "dashboard": {{
-      "enabled": true,
-      "port": 3001
-    }}
-  }}
+  "keywords": ["api", "backworks", "simple"],
+  "license": "MIT"
 }}"#, name)
     }
 }
@@ -476,7 +431,7 @@ Visit the built-in dashboard at http://localhost:3001 to explore the API interac
 
 ## Project Structure
 
-- `backworks.json` - Project metadata and configuration
+- `package.json` - Project metadata and configuration
 - `blueprints/` - API and application blueprints
 - `blueprints/main.yaml` - Main application blueprint
 
@@ -502,19 +457,9 @@ async fn build_project(target: String, security: Option<String>, output: Option<
     println!("🔨 Building project for target: {}", target);
     
     // Load project configuration
-    let (metadata, config) = config::load_project_config(None)?;
+    let config = config::load_project_config(None)?;
     
-    if let Some(ref metadata) = metadata {
-        println!("✅ Project: {} v{}", metadata.name, metadata.version);
-        
-        // Check if target is enabled
-        if let Some(target_config) = metadata.targets.get(&target) {
-            if !target_config.enabled {
-                println!("⚠️  Target '{}' is disabled in project configuration", target);
-                return Ok(());
-            }
-        }
-    }
+    println!("✅ Configuration loaded successfully");
     
     // Apply security profile if specified
     if let Some(security_profile) = security {
@@ -524,12 +469,7 @@ async fn build_project(target: String, security: Option<String>, output: Option<
     
     // Determine output directory
     let output_dir = output.unwrap_or_else(|| {
-        metadata
-            .as_ref()
-            .and_then(|m| m.targets.get(&target))
-            .and_then(|t| t.output.as_ref())
-            .map(PathBuf::from)
-            .unwrap_or_else(|| PathBuf::from("target").join(&target))
+        PathBuf::from("target").join(&target)
     });
     
     println!("📁 Output directory: {}", output_dir.display());
@@ -540,10 +480,10 @@ async fn build_project(target: String, security: Option<String>, output: Option<
     
     // TODO: Implement actual build process
     // For now, just copy the configuration
-    let config_output = output_dir.join("config.json");
-    let config_json = serde_json::to_string_pretty(&config)
+    let config_output = output_dir.join("config.yaml");
+    let config_yaml = serde_yaml::to_string(&config)
         .map_err(|e| BackworksError::config(format!("Failed to serialize config: {}", e)))?;
-    std::fs::write(&config_output, config_json)
+    std::fs::write(&config_output, config_yaml)
         .map_err(|e| BackworksError::config(format!("Failed to write config: {}", e)))?;
     
     println!("✅ Build completed successfully!");
@@ -552,75 +492,64 @@ async fn build_project(target: String, security: Option<String>, output: Option<
     Ok(())
 }
 
-async fn migrate_project(from: PathBuf, to: String) -> Result<()> {
-    println!("🔄 Migrating from {} to project structure", from.display());
+async fn migrate_project(from: PathBuf, _to: String) -> Result<()> {
+    println!("🔄 Migrating from {} to YAML-based project structure", from.display());
     
     // Load existing configuration
-    let config = config::load_config(&from).await?;
+    let config = config::load_yaml_config(&from).await?;
     println!("✅ Loaded existing configuration: {}", config.name);
     
-    // Create project metadata
+    // Create project directory structure
     let project_name = config.name.clone().to_lowercase().replace(" ", "-");
-    let metadata = format!(r#"{{
-  "name": "{}",
-  "version": "1.0.0",
-  "description": "{}",
-  "main": "blueprints/main.yaml",
-  "scripts": {{
-    "dev": "backworks start --watch",
-    "build": "backworks build",
-    "test": "backworks test"
-  }},
-  "backworks": {{
-    "entrypoint": "blueprints/main.yaml",
-    "server": {{
-      "host": "{}",
-      "port": {}
-    }},
-    "dashboard": {}
-  }}
-}}"#, 
-        project_name,
-        config.description.clone().unwrap_or_else(|| "Migrated from single file".to_string()),
-        config.server.host,
-        config.server.port,
-        if config.dashboard.is_some() {
-            serde_json::to_string(&config.dashboard).unwrap()
-        } else {
-            "null".to_string()
-        }
-    );
     
-    // Create project structure
-    std::fs::create_dir_all("blueprints")
-        .map_err(|e| BackworksError::config(format!("Failed to create blueprints directory: {}", e)))?;
+    // Create project directory
+    std::fs::create_dir_all(&project_name)
+        .map_err(|e| BackworksError::config(format!("Failed to create project directory: {}", e)))?;
     
-    // Write project metadata (default to package.json)
-    let target_file = if to == "backworks.json" { "package.json" } else { &to };
-    std::fs::write(target_file, metadata)
-        .map_err(|e| BackworksError::config(format!("Failed to write {}: {}", target_file, e)))?;
+    // Write main configuration file (backworks.yaml)
+    let main_config_yaml = serde_yaml::to_string(&config)
+        .map_err(|e| BackworksError::config(format!("Failed to serialize config: {}", e)))?;
     
-    // Create main blueprint (simplified version of original)
-    let main_blueprint = format!(r#"name: "{}"
-description: "{}"
+    let main_config_path = PathBuf::from(&project_name).join("backworks.yaml");
+    std::fs::write(&main_config_path, main_config_yaml)
+        .map_err(|e| BackworksError::config(format!("Failed to write backworks.yaml: {}", e)))?;
+    
+    // Create README
+    let readme_content = format!(r#"# {}
 
-endpoints: {}
+{}
+
+## Getting Started
+
+```bash
+# Start the development server
+backworks start
+
+# Build for production
+backworks build --target production
+```
+
+## API Endpoints
+
+{}
 "#, 
         config.name,
-        config.description.clone().unwrap_or_else(|| "Migrated configuration".to_string()),
-        serde_yaml::to_string(&config.endpoints)
-            .map_err(|e| BackworksError::config(format!("Failed to serialize endpoints: {}", e)))?
+        config.description.unwrap_or("A Backworks API project".to_string()),
+        config.endpoints.keys().map(|k| format!("- `{}`", k)).collect::<Vec<_>>().join("\n")
     );
     
-    std::fs::write("blueprints/main.yaml", main_blueprint)
-        .map_err(|e| BackworksError::config(format!("Failed to write main.yaml: {}", e)))?;
+    let readme_path = PathBuf::from(&project_name).join("README.md");
+    std::fs::write(&readme_path, readme_content)
+        .map_err(|e| BackworksError::config(format!("Failed to write README.md: {}", e)))?;
     
     println!("✅ Migration completed successfully!");
-    println!("📁 Created:");
-    println!("   {}", target_file);
-    println!("   blueprints/main.yaml");
+    println!("📁 New project structure:");
+    println!("   {}/", project_name);
+    println!("   ├── backworks.yaml");
+    println!("   └── README.md");
     println!();
-    println!("🚀 Start the migrated project:");
+    println!("🚀 Get started:");
+    println!("   cd {}", project_name);
     println!("   backworks start");
     
     Ok(())
@@ -630,28 +559,9 @@ async fn validate_config(config_path: Option<PathBuf>) -> Result<()> {
     println!("🔍 Validating configuration...");
     
     // Load configuration
-    let (metadata, config) = config::load_project_config(config_path)?;
+    let config = config::load_project_config(config_path)?;
     
-    if let Some(ref metadata) = metadata {
-        println!("✅ Project metadata valid: {} v{}", metadata.name, metadata.version);
-        
-        // Validate project structure
-        if !PathBuf::from(&metadata.entrypoint).exists() {
-            println!("⚠️  Warning: Entrypoint file not found: {}", metadata.entrypoint);
-        }
-        
-        // Validate blueprint references
-        for (key, path) in &metadata.blueprints {
-            let blueprint_path = PathBuf::from(path);
-            if blueprint_path.is_dir() {
-                if !blueprint_path.exists() {
-                    println!("⚠️  Warning: Blueprint directory not found: {} ({})", key, path);
-                }
-            } else if !blueprint_path.exists() {
-                println!("⚠️  Warning: Blueprint file not found: {} ({})", key, path);
-            }
-        }
-    }
+    println!("✅ Configuration loaded successfully");
     
     // Validate blueprint configuration
     config::validate_config(&config)?;
@@ -668,15 +578,11 @@ fn init_logging(verbose: bool) {
     }
 }
 
-async fn analyze_blueprint(config: Option<PathBuf>, format: Option<String>, output: Option<PathBuf>) -> Result<()> {
+async fn analyze_blueprint(config: Option<PathBuf>, _format: Option<String>, output: Option<PathBuf>) -> Result<()> {
     println!("🔍 Analyzing blueprint configuration...");
     
     // Load configuration
-    let (metadata, config) = config::load_project_config(config)?;
-    
-    if let Some(ref metadata) = metadata {
-        println!("✅ Project: {} v{}", metadata.name, metadata.version);
-    }
+    let config = config::load_project_config(config)?;
     
     println!("📊 Analysis Results:");
     println!("   Name: {}", config.name);

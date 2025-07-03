@@ -353,6 +353,7 @@ try {{
         }
     }
 
+    #[allow(dead_code)] // TODO: Will be used when Node.js runtime support is implemented
     async fn execute_nodejs_handler(&self, handler: &HandlerInstance, request: &ExecutionRequest) -> BackworksResult<ExecutionResult> {
         let input = serde_json::to_string(&serde_json::json!({
             "method": request.method,
@@ -391,6 +392,7 @@ try {{
         })
     }
     
+    #[allow(dead_code)] // TODO: Will be used when Node.js runtime support is implemented
     async fn parse_handler_output(&self, stdout: Vec<u8>, stderr: Vec<u8>, success: bool) -> BackworksResult<String> {
         if !success {
             let stderr_str = String::from_utf8_lossy(&stderr);

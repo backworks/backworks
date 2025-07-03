@@ -1,0 +1,46 @@
+[package]
+name = "backworks-proxy-plugin"
+version = "0.1.0"
+edition = "2021"
+description = "HTTP proxy and load balancing plugin for Backworks"
+authors = ["Backworks Team"]
+license = "MIT"
+repository = "https://github.com/backworks/backworks"
+
+[dependencies]
+# Core dependencies
+backworks = { path = "../.." }
+async-trait = "0.1"
+tokio = { version = "1.0", features = ["full"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+serde_urlencoded = "0.7"
+tracing = "0.1"
+uuid = { version = "1.0", features = ["v4"] }
+chrono = { version = "0.4", features = ["serde"] }
+
+# HTTP client and server
+reqwest = { version = "0.11", features = ["json", "stream"] }
+axum = { version = "0.7", features = ["macros"] }
+hyper = { version = "1.0", features = ["full"] }
+http = "1.0"
+tower = "0.4"
+tower-http = { version = "0.5", features = ["cors", "trace"] }
+
+# URL parsing and utilities
+url = "2.4"
+percent-encoding = "2.3"
+
+# Async utilities
+futures = "0.3"
+tokio-stream = "0.1"
+
+# Hashing for IP-based load balancing
+sha2 = "0.10"
+
+# Load balancing and circuit breaker
+rand = "0.8"
+
+[dev-dependencies]
+tokio-test = "0.4"
+mockito = "1.2"

@@ -1,0 +1,12 @@
+{
+  "name": "auth-api-example",
+  "version": "1.0.0",
+  "description": "Example API with authentication",
+  "private": true,
+  "scripts": {
+    "start": "backworks run"
+  },
+  "dependencies": {
+    "jsonwebtoken": "^9.0.0"
+  }
+}

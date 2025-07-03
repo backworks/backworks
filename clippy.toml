@@ -1,0 +1,8 @@
+# Clippy configuration for Backworks
+# Allow some warnings that are not critical
+
+# Allow large error types - these are acceptable for this project
+type-complexity-threshold = 250
+
+# Allow complex function signatures in web frameworks
+too-many-arguments-threshold = 10

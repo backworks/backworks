@@ -22,9 +22,6 @@ pub enum BackworksError {
     #[error("AI processing error: {0}")]
     AI(String),
     
-    #[error("Proxy error: {0}")]
-    Proxy(String),
-    
     #[error("Capture error: {0}")]
     Capture(String),
     
@@ -40,8 +37,8 @@ pub enum BackworksError {
     #[error("JSON error: {0}")]
     Json(#[from] serde_json::Error),
     
-    #[error("SQL error: {0}")]
-    Sql(#[from] sqlx::Error),
+    #[error("Plugin error: {0}")]
+    Plugin(String),
     
     #[error("Request error: {0}")]
     Request(#[from] reqwest::Error),
@@ -94,12 +91,12 @@ impl BackworksError {
         Self::Http(msg.to_string())
     }
     
-    pub fn proxy<T: ToString>(msg: T) -> Self {
-        Self::Proxy(msg.to_string())
-    }
-    
     pub fn capture<T: ToString>(msg: T) -> Self {
         Self::Capture(msg.to_string())
+    }
+    
+    pub fn plugin<T: ToString>(msg: T) -> Self {
+        Self::Plugin(msg.to_string())
     }
 }
 
@@ -110,13 +107,12 @@ impl IntoResponse for BackworksError {
             BackworksError::Runtime(_) => (StatusCode::INTERNAL_SERVER_ERROR, self.to_string()),
             BackworksError::Database(_) => (StatusCode::INTERNAL_SERVER_ERROR, self.to_string()),
             BackworksError::AI(_) => (StatusCode::INTERNAL_SERVER_ERROR, self.to_string()),
-            BackworksError::Proxy(_) => (StatusCode::BAD_GATEWAY, self.to_string()),
             BackworksError::Capture(_) => (StatusCode::INTERNAL_SERVER_ERROR, self.to_string()),
             BackworksError::Http(_) => (StatusCode::INTERNAL_SERVER_ERROR, self.to_string()),
             BackworksError::Io(_) => (StatusCode::INTERNAL_SERVER_ERROR, self.to_string()),
             BackworksError::Serialization(_) => (StatusCode::BAD_REQUEST, self.to_string()),
             BackworksError::Json(_) => (StatusCode::BAD_REQUEST, self.to_string()),
-            BackworksError::Sql(_) => (StatusCode::INTERNAL_SERVER_ERROR, self.to_string()),
+            BackworksError::Plugin(_) => (StatusCode::INTERNAL_SERVER_ERROR, self.to_string()),
             BackworksError::Server(_) => (StatusCode::INTERNAL_SERVER_ERROR, self.to_string()),
             BackworksError::Request(_) => (StatusCode::BAD_REQUEST, self.to_string()),
             BackworksError::Template(_) => (StatusCode::INTERNAL_SERVER_ERROR, self.to_string()),

@@ -44,6 +44,7 @@ pub struct Dashboard {
     metrics: Arc<RwLock<HashMap<String, EndpointMetrics>>>,
     system_metrics: Arc<RwLock<SystemMetrics>>,
     event_sender: broadcast::Sender<String>,
+    #[allow(dead_code)] // TODO: Will be used for displaying uptime in dashboard
     start_time: chrono::DateTime<chrono::Utc>,
 }
 

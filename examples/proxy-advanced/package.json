@@ -1,0 +1,18 @@
+{
+  "name": "proxy-advanced-example",
+  "version": "1.0.0",
+  "description": "Advanced proxy example with load balancing, circuit breaker, and health checks",
+  "main": "blueprints/main.yaml",
+  "scripts": {
+    "start": "backworks start",
+    "dev": "backworks start --watch",
+    "test": "backworks test"
+  },
+  "dependencies": {
+    "backworks": "^0.1.0",
+    "backworks-proxy-plugin": "^0.1.0"
+  },
+  "keywords": ["backworks", "proxy", "load-balancing", "circuit-breaker", "health-check"],
+  "author": "Backworks Team",
+  "license": "MIT"
+}

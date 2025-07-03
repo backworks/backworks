@@ -1,0 +1,73 @@
+name: auth-api
+description: Example API with authentication using Backworks Auth Plugin
+version: 1.0.0
+
+plugins:
+  - type: auth
+    config:
+      enabled: true
+      jwt_secret: "my_secure_jwt_secret_for_development_only"
+      token_expiry_minutes: 60
+
+middlewares:
+  - name: authenticate
+    plugin: auth
+    config:
+      path: "/api/resources*"
+      roles: ["user", "admin"]
+  
+  - name: admin_only
+    plugin: auth
+    config:
+      path: "/api/resources"
+      methods: ["POST", "PUT", "DELETE"]
+      roles: ["admin"]
+
+endpoints:
+  # Auth endpoints
+  - path: /api/auth/register
+    method: POST
+    handler: ../handlers/auth/register.js
+    description: Register a new user
+
+  - path: /api/auth/login
+    method: POST
+    handler: ../handlers/auth/login.js
+    description: Login with username and password
+
+  - path: /api/auth/validate
+    method: GET
+    handler: ../handlers/auth/validate.js
+    description: Validate a token
+    middleware: [authenticate]
+
+  # Resource endpoints (protected)
+  - path: /api/resources
+    method: GET
+    handler: ../handlers/resources/list.js
+    description: Get all resources
+    middleware: [authenticate]
+
+  - path: /api/resources
+    method: POST
+    handler: ../handlers/resources/create.js
+    description: Create a resource
+    middleware: [authenticate, admin_only]
+
+  - path: /api/resources/:id
+    method: GET
+    handler: ../handlers/resources/get.js
+    description: Get a resource by ID
+    middleware: [authenticate]
+
+  - path: /api/resources/:id
+    method: PUT
+    handler: ../handlers/resources/update.js
+    description: Update a resource
+    middleware: [authenticate, admin_only]
+
+  - path: /api/resources/:id
+    method: DELETE
+    handler: ../handlers/resources/delete.js
+    description: Delete a resource
+    middleware: [authenticate, admin_only]

@@ -18,9 +18,7 @@ use serde::{Serialize, Deserialize};
 use tracing::{info, debug, error};
 
 use crate::config::{BackworksConfig, ExecutionMode};
-use crate::database::DatabaseManager;
 use crate::runtime::RuntimeManager;
-use crate::proxy::ProxyHandler;
 use crate::plugin::PluginManager;
 use crate::dashboard::Dashboard;
 use crate::error::{BackworksError, Result};
@@ -29,9 +27,7 @@ use crate::error::{BackworksError, Result};
 pub struct AppState {
     pub config: Arc<BackworksConfig>,
     pub plugin_manager: PluginManager,
-    pub database_manager: Option<DatabaseManager>,
     pub runtime_manager: RuntimeManager,
-    pub proxy_handlers: Arc<tokio::sync::RwLock<HashMap<String, Arc<ProxyHandler>>>>,
     pub dashboard: Option<Arc<Dashboard>>,
 }
 
@@ -42,7 +38,6 @@ pub struct BackworksServer {
 impl BackworksServer {
     pub fn new(
         config: Arc<BackworksConfig>,
-        database_manager: Option<DatabaseManager>,
         plugin_manager: PluginManager,
         dashboard: Option<Arc<Dashboard>>,
     ) -> Result<Self> {
@@ -50,21 +45,10 @@ impl BackworksServer {
         let runtime_config = crate::runtime::RuntimeManagerConfig::default();
         let runtime_manager = RuntimeManager::new(runtime_config);
         
-        // Initialize proxy handlers for endpoints that need them
-        let mut proxy_handlers = HashMap::new();
-        for (endpoint_name, endpoint_config) in &config.endpoints {
-            if let Some(ref proxy_config) = endpoint_config.proxy {
-                let proxy_handler = Arc::new(ProxyHandler::new(proxy_config.clone()));
-                proxy_handlers.insert(endpoint_name.clone(), proxy_handler);
-            }
-        }
-        
         let state = AppState {
             config,
             plugin_manager,
-            database_manager,
             runtime_manager,
-            proxy_handlers: Arc::new(tokio::sync::RwLock::new(proxy_handlers)),
             dashboard,
         };
         
@@ -72,16 +56,6 @@ impl BackworksServer {
     }
     
     pub async fn start(self) -> Result<()> {
-        // Start all proxy handlers
-        let proxy_handlers = self.state.proxy_handlers.read().await;
-        for (endpoint_name, proxy_handler) in proxy_handlers.iter() {
-            info!("🔀 Starting proxy handler for endpoint: {}", endpoint_name);
-            if let Err(e) = proxy_handler.start().await {
-                error!("Failed to start proxy handler for {}: {}", endpoint_name, e);
-            }
-        }
-        drop(proxy_handlers); // Release the lock
-        
         let app = self.create_app();
         
         let listener = tokio::net::TcpListener::bind(
@@ -285,35 +259,17 @@ async fn handle_endpoint_request(
             }
         }
         ExecutionMode::Database => {
-            if let Some(ref db_manager) = state.database_manager {
-                if let Some(ref _db_config) = endpoint_config.database {
-                    // Convert EndpointDatabaseConfig to DatabaseConfig for now
-                    let full_db_config = crate::config::DatabaseConfig {
-                        db_type: "sqlite".to_string(), // Default type
-                        connection_string: None,
-                        connection_string_env: Some("DATABASE_URL".to_string()),
-                        pool: None,
-                        databases: None,
-                    };
-                    db_manager.handle_request(&method, &full_db_config, &request_data_json).await
-                } else {
-                    Err(BackworksError::config("Database mode requires database configuration"))
-                }
-            } else {
-                Err(BackworksError::config("Database mode requires database manager"))
-            }
-        }
-        ExecutionMode::Proxy => {
-            if let Some(ref _proxy_config) = endpoint_config.proxy {
-                // Get the pre-initialized proxy handler for this endpoint
-                let proxy_handlers = state.proxy_handlers.read().await;
-                if let Some(proxy_handler) = proxy_handlers.get(&endpoint_name) {
-                    proxy_handler.handle_request_data(&endpoint_config.proxy.as_ref().unwrap(), &request_data).await
-                } else {
-                    Err(BackworksError::config("Proxy handler not initialized for endpoint"))
-                }
-            } else {
-                Err(BackworksError::config("Proxy mode requires proxy configuration"))
+            // Database mode now requires plugins to handle the actual database operations
+            debug!("Database mode endpoint - delegating to plugins");
+            
+            // Let plugins handle database operations with simple data interface
+            let data_str = serde_json::to_string(&request_data)
+                .map_err(|e| BackworksError::plugin(format!("Failed to serialize request data: {}", e)))?;
+            
+            match state.plugin_manager.process_endpoint_data(&endpoint_name, &method, &data_str).await {
+                Ok(Some(response)) => Ok(response),
+                Ok(None) => Err(BackworksError::config("No plugin handled database endpoint")),
+                Err(e) => Err(e),
             }
         }
         ExecutionMode::Plugin => {

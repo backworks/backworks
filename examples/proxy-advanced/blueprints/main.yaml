@@ -1,0 +1,181 @@
+name: "Advanced Proxy API"
+version: "1.0.0"
+description: "Advanced proxy example with multiple targets, load balancing, circuit breaker, and health checks"
+
+server:
+  host: "0.0.0.0"
+  port: 8080
+
+dashboard:
+  enabled: true
+  port: 8081
+
+plugins:
+  proxy:
+    enabled: true
+    config:
+      targets:
+        - name: "backend-1"
+          url: "http://localhost:3001"
+          weight: 1.0
+          timeout: 30
+          health_check:
+            path: "/health"
+            interval: 30
+            timeout: 5
+            healthy_threshold: 2
+            unhealthy_threshold: 3
+          retry_attempts: 3
+        - name: "backend-2"
+          url: "http://localhost:3002"
+          weight: 2.0
+          timeout: 30
+          health_check:
+            path: "/health"
+            interval: 30
+            timeout: 5
+            healthy_threshold: 2
+            unhealthy_threshold: 3
+          retry_attempts: 3
+        - name: "backend-3"
+          url: "http://localhost:3003"
+          weight: 1.0
+          timeout: 30
+          health_check:
+            path: "/health"
+            interval: 30
+            timeout: 5
+            healthy_threshold: 2
+            unhealthy_threshold: 3
+          retry_attempts: 3
+      load_balancing: "weighted_round_robin"
+      circuit_breaker:
+        failure_threshold: 5
+        recovery_timeout: 60
+        half_open_max_calls: 3
+      health_check:
+        enabled: true
+        interval: 30
+        timeout: 5
+      metrics:
+        enabled: true
+        detailed: true
+      transform_request:
+        headers:
+          X-Proxy-Version: "1.0"
+          X-Load-Balancer: "backworks"
+      transform_response:
+        headers:
+          X-Proxied-By: "backworks-proxy-plugin"
+
+endpoints:
+  - path: "/api/users"
+    method: "GET"
+    handler: "proxy"
+    config:
+      proxy:
+        path: "/users"
+        method: "GET"
+        transform_request:
+          headers:
+            X-Request-Source: "user-service"
+  
+  - path: "/api/users/{id}"
+    method: "GET"
+    handler: "proxy"
+    config:
+      proxy:
+        path: "/users/{id}"
+        method: "GET"
+        transform_request:
+          headers:
+            X-Request-Source: "user-service"
+  
+  - path: "/api/users"
+    method: "POST"
+    handler: "proxy"
+    config:
+      proxy:
+        path: "/users"
+        method: "POST"
+        transform_request:
+          headers:
+            X-Request-Source: "user-service"
+            Content-Type: "application/json"
+  
+  - path: "/api/orders"
+    method: "GET"
+    handler: "proxy"
+    config:
+      proxy:
+        path: "/orders"
+        method: "GET"
+        transform_request:
+          headers:
+            X-Request-Source: "order-service"
+  
+  - path: "/api/orders/{id}"
+    method: "GET"
+    handler: "proxy"
+    config:
+      proxy:
+        path: "/orders/{id}"
+        method: "GET"
+        transform_request:
+          headers:
+            X-Request-Source: "order-service"
+  
+  - path: "/api/orders"
+    method: "POST"
+    handler: "proxy"
+    config:
+      proxy:
+        path: "/orders"
+        method: "POST"
+        transform_request:
+          headers:
+            X-Request-Source: "order-service"
+            Content-Type: "application/json"
+  
+  - path: "/api/products"
+    method: "GET"
+    handler: "proxy"
+    config:
+      proxy:
+        path: "/products"
+        method: "GET"
+        transform_request:
+          headers:
+            X-Request-Source: "product-service"
+  
+  - path: "/api/products/{id}"
+    method: "GET"
+    handler: "proxy"
+    config:
+      proxy:
+        path: "/products/{id}"
+        method: "GET"
+        transform_request:
+          headers:
+            X-Request-Source: "product-service"
+  
+  - path: "/health"
+    method: "GET"
+    handler: "static"
+    config:
+      static:
+        status: 200
+        body:
+          status: "healthy"
+          timestamp: "{{now}}"
+          version: "1.0.0"
+  
+  - path: "/metrics"
+    method: "GET"
+    handler: "metrics"
+    config:
+      metrics:
+        format: "json"
+        include_proxy_metrics: true
+        include_circuit_breaker_status: true
+        include_health_check_status: true

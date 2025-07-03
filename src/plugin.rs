@@ -1,8 +1,4 @@
-//! Plugin system for Backworks
-//! 
-//! Provides a standardized interface for extending Backworks functionality
-//! through modular plugins with built-in resilience and monitoring.
-
+use async_trait::async_trait;
 use crate::error::BackworksResult;
 use crate::resilience::{ResilientPluginExecutor, ResilientPluginConfig, PluginMetrics};
 use axum::{http::Request, response::Response};
@@ -28,6 +24,36 @@ impl Default for PluginConfig {
             enabled: false,
             config: Value::Null,
         }
+    }
+}
+
+/// Plugin trait that all Backworks plugins must implement
+#[async_trait]
+pub trait Plugin: Send + Sync {
+    /// Get the plugin name
+    fn name(&self) -> &str;
+    
+    /// Get the plugin version
+    fn version(&self) -> &str;
+    
+    /// Get the plugin description
+    fn description(&self) -> &str;
+    
+    /// Initialize the plugin with configuration
+    async fn initialize(&mut self, config: &PluginConfig) -> Result<(), Box<dyn std::error::Error + Send + Sync>>;
+    
+    /// Start the plugin
+    async fn start(&mut self) -> Result<(), Box<dyn std::error::Error + Send + Sync>>;
+    
+    /// Stop the plugin
+    async fn stop(&mut self) -> Result<(), Box<dyn std::error::Error + Send + Sync>>;
+    
+    /// Health check for the plugin
+    async fn health_check(&self) -> Result<bool, Box<dyn std::error::Error + Send + Sync>>;
+    
+    /// Get plugin metadata
+    fn metadata(&self) -> HashMap<String, String> {
+        HashMap::new()
     }
 }
 
@@ -88,7 +114,7 @@ pub trait BackworksPlugin: Send + Sync {
     }
     
     /// Hook called for custom endpoint processing
-    async fn process_endpoint(&self, _endpoint: &str, _request: &Request<axum::body::Body>) -> BackworksResult<Option<Response<axum::body::Body>>> {
+    async fn process_endpoint_data(&self, _endpoint: &str, _method: &str, _data: &str) -> BackworksResult<Option<String>> {
         Ok(None) // Default implementation doesn't handle endpoints
     }
     
@@ -367,13 +393,13 @@ impl PluginManager {
     }
     
     /// Try to process endpoint with plugins (first plugin to return Some wins)
-    pub async fn process_endpoint(&self, endpoint: &str, request: &Request<axum::body::Body>) -> BackworksResult<Option<Response<axum::body::Body>>> {
+    pub async fn process_endpoint_data(&self, endpoint: &str, method: &str, data: &str) -> BackworksResult<Option<String>> {
         let plugins = self.plugins.read().await;
         
         for (name, plugin) in plugins.iter() {
             let result = self.resilient_executor.execute_with_resilience(
                 name,
-                plugin.process_endpoint(endpoint, request),
+                plugin.process_endpoint_data(endpoint, method, data),
             ).await;
             
             match result {

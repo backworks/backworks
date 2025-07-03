@@ -673,7 +673,6 @@ impl Capturer {
 mod tests {
     use super::*;
     use std::time::Duration;
-    use tokio::time::sleep;
 
     fn create_test_capture_config() -> CaptureConfig {
         CaptureConfig {

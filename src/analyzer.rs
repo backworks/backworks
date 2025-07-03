@@ -1,9 +1,9 @@
-use crate::config::{BackworksConfig, EndpointConfig, ProxyConfig, TransformConfig};
-use crate::error::{BackworksError, BackworksResult};
+use crate::config::BackworksConfig;
+use crate::error::BackworksResult;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
-use tracing::{info, warn, error};
+use tracing::info;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AnalysisReport {
@@ -25,7 +25,6 @@ pub enum AnalysisStatus {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AnalysisSummary {
     pub endpoints: usize,
-    pub proxy_endpoints: usize,
     pub runtime_endpoints: usize,
     pub database_endpoints: usize,
     pub transformations: usize,
@@ -144,8 +143,6 @@ impl BlueprintAnalyzer {
 
         // Run all analysis checks
         self.check_routing_conflicts(config, &mut issues, &mut suggestions);
-        self.check_transformation_logic(config, &mut issues, &mut suggestions);
-        self.check_proxy_configurations(config, &mut issues, &mut suggestions);
         self.check_performance_considerations(config, &mut issues, &mut recommendations);
         self.check_security_considerations(config, &mut issues, &mut recommendations);
         self.suggest_improvements(config, &mut suggestions, &mut recommendations);
@@ -171,21 +168,12 @@ impl BlueprintAnalyzer {
 
     fn generate_summary(&self, config: &BackworksConfig) -> AnalysisSummary {
         let endpoints = config.endpoints.len();
-        let mut proxy_endpoints = 0;
         let mut runtime_endpoints = 0;
         let mut database_endpoints = 0;
-        let mut transformations = 0;
+        let transformations = 0;
 
         for endpoint in config.endpoints.values() {
             match endpoint.mode.as_ref().unwrap_or(&config.mode) {
-                crate::config::ExecutionMode::Proxy => {
-                    proxy_endpoints += 1;
-                    if let Some(ref proxy) = endpoint.proxy {
-                        if proxy.transform_request.is_some() || proxy.transform_response.is_some() {
-                            transformations += 1;
-                        }
-                    }
-                }
                 crate::config::ExecutionMode::Runtime => runtime_endpoints += 1,
                 crate::config::ExecutionMode::Database => database_endpoints += 1,
                 _ => {}
@@ -194,7 +182,6 @@ impl BlueprintAnalyzer {
 
         AnalysisSummary {
             endpoints,
-            proxy_endpoints,
             runtime_endpoints,
             database_endpoints,
             transformations,
@@ -290,161 +277,14 @@ impl BlueprintAnalyzer {
         true
     }
 
-    fn check_transformation_logic(&self, config: &BackworksConfig, issues: &mut Vec<AnalysisIssue>, suggestions: &mut Vec<AnalysisSuggestion>) {
-        for (name, endpoint) in &config.endpoints {
-            if let Some(ref proxy) = endpoint.proxy {
-                self.analyze_transformations(name, proxy, issues, suggestions);
-            }
-        }
-    }
-
-    fn analyze_transformations(&self, endpoint_name: &str, proxy: &ProxyConfig, issues: &mut Vec<AnalysisIssue>, suggestions: &mut Vec<AnalysisSuggestion>) {
-        // Check request transformations
-        if let Some(ref transform) = proxy.transform_request {
-            self.check_path_transformation(endpoint_name, transform, issues, suggestions);
-        }
-
-        // Check response transformations
-        if let Some(ref transform) = proxy.transform_response {
-            self.check_response_transformation(endpoint_name, transform, issues, suggestions);
-        }
-    }
-
-    fn check_path_transformation(&self, endpoint_name: &str, transform: &TransformConfig, issues: &mut Vec<AnalysisIssue>, suggestions: &mut Vec<AnalysisSuggestion>) {
-        if let Some(ref path_rewrite) = transform.path_rewrite {
-            // Check for potential issues with path transformation
-            if path_rewrite.strip_prefix.is_some() && path_rewrite.add_prefix.is_none() {
-                issues.push(AnalysisIssue {
-                    severity: IssueSeverity::Warning,
-                    category: IssueCategory::Transformation,
-                    message: format!("Endpoint '{}' strips path prefix but doesn't add one", endpoint_name),
-                    location: IssueLocation {
-                        path: format!("endpoints.{}.proxy.transform_request.path_rewrite", endpoint_name),
-                        line: None,
-                        column: None,
-                        context: None,
-                    },
-                    help: Some("Consider adding 'add_prefix' to avoid empty paths".to_string()),
-                });
-
-                // Generate suggestion with diff
-                suggestions.push(AnalysisSuggestion {
-                    title: "Add path prefix after stripping".to_string(),
-                    description: "Prevent empty paths by adding a meaningful prefix".to_string(),
-                    diff: Some(GitDiff {
-                        file_path: "blueprint.yaml".to_string(),
-                        original: format!("        path_rewrite:\n          strip_prefix: {:?}", path_rewrite.strip_prefix.as_ref().unwrap()),
-                        suggested: format!("        path_rewrite:\n          strip_prefix: {:?}\n          add_prefix: \"/\"", path_rewrite.strip_prefix.as_ref().unwrap()),
-                        line_start: 1,
-                        line_end: 2,
-                    }),
-                    priority: SuggestionPriority::Medium,
-                });
-            }
-        }
-    }
-
-    fn check_response_transformation(&self, endpoint_name: &str, transform: &TransformConfig, issues: &mut Vec<AnalysisIssue>, _suggestions: &mut Vec<AnalysisSuggestion>) {
-        if transform.add_headers.is_none() && transform.body_transform.is_none() && transform.force_status_code.is_none() {
-            issues.push(AnalysisIssue {
-                severity: IssueSeverity::Info,
-                category: IssueCategory::Transformation,
-                message: format!("Endpoint '{}' has empty response transformation", endpoint_name),
-                location: IssueLocation {
-                    path: format!("endpoints.{}.proxy.transform_response", endpoint_name),
-                    line: None,
-                    column: None,
-                    context: None,
-                },
-                help: Some("Consider removing empty transform_response block or add transformations".to_string()),
-            });
-        }
-    }
-
-    fn check_proxy_configurations(&self, config: &BackworksConfig, issues: &mut Vec<AnalysisIssue>, suggestions: &mut Vec<AnalysisSuggestion>) {
-        for (name, endpoint) in &config.endpoints {
-            if let Some(ref proxy) = endpoint.proxy {
-                self.validate_proxy_config(name, proxy, issues, suggestions);
-            }
-        }
-    }
-
-    fn validate_proxy_config(&self, endpoint_name: &str, proxy: &ProxyConfig, issues: &mut Vec<AnalysisIssue>, suggestions: &mut Vec<AnalysisSuggestion>) {
-        // Check if targets are defined
-        let empty_targets = Vec::new();
-        let targets = proxy.targets.as_ref().unwrap_or(&empty_targets);
-        if targets.is_empty() {
-            issues.push(AnalysisIssue {
-                severity: IssueSeverity::Error,
-                category: IssueCategory::Configuration,
-                message: format!("Endpoint '{}' has no proxy targets defined", endpoint_name),
-                location: IssueLocation {
-                    path: format!("endpoints.{}.proxy.targets", endpoint_name),
-                    line: None,
-                    column: None,
-                    context: None,
-                },
-                help: Some("Add at least one target URL".to_string()),
-            });
-
-            suggestions.push(AnalysisSuggestion {
-                title: "Add proxy target".to_string(),
-                description: "Define at least one target for the proxy endpoint".to_string(),
-                diff: Some(GitDiff {
-                    file_path: "blueprint.yaml".to_string(),
-                    original: "      targets: []".to_string(),
-                    suggested: "      targets:\n        - name: \"example\"\n          url: \"https://api.example.com\"\n          weight: 1.0".to_string(),
-                    line_start: 1,
-                    line_end: 1,
-                }),
-                priority: SuggestionPriority::Critical,
-            });
-        }
-
-        // Check target URLs
-        for target in targets {
-            if !target.url.starts_with("http://") && !target.url.starts_with("https://") {
-                issues.push(AnalysisIssue {
-                    severity: IssueSeverity::Error,
-                    category: IssueCategory::Configuration,
-                    message: format!("Invalid target URL '{}' in endpoint '{}'", target.url, endpoint_name),
-                    location: IssueLocation {
-                        path: format!("endpoints.{}.proxy.targets", endpoint_name),
-                        line: None,
-                        column: None,
-                        context: Some(format!("target: {}", target.name)),
-                    },
-                    help: Some("URLs must start with http:// or https://".to_string()),
-                });
-            }
-        }
-
-        // Check load balancing weights
-        let total_weight: f64 = targets.iter().map(|t| t.weight.unwrap_or(1.0)).sum();
-        if (total_weight - 1.0).abs() > 0.001 && targets.len() > 1 {
-            issues.push(AnalysisIssue {
-                severity: IssueSeverity::Warning,
-                category: IssueCategory::Configuration,
-                message: format!("Target weights don't sum to 1.0 (sum: {:.3}) in endpoint '{}'", total_weight, endpoint_name),
-                location: IssueLocation {
-                    path: format!("endpoints.{}.proxy.targets", endpoint_name),
-                    line: None,
-                    column: None,
-                    context: None,
-                },
-                help: Some("Adjust weights so they sum to 1.0 for proper load balancing".to_string()),
-            });
-        }
-    }
-
     fn check_performance_considerations(&self, config: &BackworksConfig, issues: &mut Vec<AnalysisIssue>, recommendations: &mut Vec<String>) {
-        let proxy_count = config.endpoints.values().filter(|e| e.proxy.is_some()).count();
+        let endpoint_count = config.endpoints.len();
         
-        if proxy_count > 10 {
+        if endpoint_count > 50 {
             issues.push(AnalysisIssue {
                 severity: IssueSeverity::Info,
                 category: IssueCategory::Performance,
-                message: format!("High number of proxy endpoints ({})", proxy_count),
+                message: format!("High number of endpoints ({})", endpoint_count),
                 location: IssueLocation {
                     path: "endpoints".to_string(),
                     line: None,
@@ -454,36 +294,12 @@ impl BlueprintAnalyzer {
                 help: Some("Consider consolidating similar endpoints or using path parameters".to_string()),
             });
             
-            recommendations.push("Consider implementing connection pooling for proxy targets".to_string());
-            recommendations.push("Monitor proxy endpoint performance and add caching if needed".to_string());
+            recommendations.push("Consider implementing caching for frequently accessed endpoints".to_string());
+            recommendations.push("Monitor endpoint performance and optimize as needed".to_string());
         }
     }
 
-    fn check_security_considerations(&self, config: &BackworksConfig, issues: &mut Vec<AnalysisIssue>, recommendations: &mut Vec<String>) {
-        // Check for HTTP targets
-        for (name, endpoint) in &config.endpoints {
-            if let Some(ref proxy) = endpoint.proxy {
-                let empty_targets = Vec::new();
-                let targets = proxy.targets.as_ref().unwrap_or(&empty_targets);
-                for target in targets {
-                    if target.url.starts_with("http://") {
-                        issues.push(AnalysisIssue {
-                            severity: IssueSeverity::Warning,
-                            category: IssueCategory::Security,
-                            message: format!("Insecure HTTP target '{}' in endpoint '{}'", target.url, name),
-                            location: IssueLocation {
-                                path: format!("endpoints.{}.proxy.targets", name),
-                                line: None,
-                                column: None,
-                                context: Some(format!("target: {}", target.name)),
-                            },
-                            help: Some("Consider using HTTPS for secure communication".to_string()),
-                        });
-                    }
-                }
-            }
-        }
-
+    fn check_security_considerations(&self, config: &BackworksConfig, _issues: &mut Vec<AnalysisIssue>, recommendations: &mut Vec<String>) {
         // Check CORS configuration
         if let Some(ref security) = &config.security {
             if let Some(ref cors) = &security.cors {
@@ -496,35 +312,27 @@ impl BlueprintAnalyzer {
                 }
             }
         }
+        
+        // General security recommendations
+        recommendations.push("Consider implementing rate limiting for API endpoints".to_string());
+        recommendations.push("Enable authentication and authorization for sensitive endpoints".to_string());
     }
 
     fn suggest_improvements(&self, config: &BackworksConfig, suggestions: &mut Vec<AnalysisSuggestion>, recommendations: &mut Vec<String>) {
-        // Suggest adding health checks
-        let has_health_checks = config.endpoints.values().any(|e| {
-            e.proxy.as_ref().map_or(false, |proxy| proxy.health_checks.unwrap_or(false))
-        });
-
-        if !has_health_checks && config.endpoints.values().any(|e| e.proxy.is_some()) {
+        // Suggest adding monitoring
+        if config.monitoring.is_none() {
             suggestions.push(AnalysisSuggestion {
-                title: "Add health checks".to_string(),
-                description: "Enable health checking for proxy targets".to_string(),
+                title: "Add monitoring configuration".to_string(),
+                description: "Enable monitoring for better observability".to_string(),
                 diff: None,
                 priority: SuggestionPriority::Medium,
             });
-            recommendations.push("Consider adding health checks to proxy configurations".to_string());
+            recommendations.push("Consider adding monitoring and logging configuration".to_string());
         }
 
-        // Suggest adding timeouts
-        let has_timeouts = config.endpoints.values().any(|e| {
-            e.proxy.as_ref().map_or(false, |proxy| {
-                let empty_targets = Vec::new();
-                let targets = proxy.targets.as_ref().unwrap_or(&empty_targets);
-                targets.iter().any(|t| t.timeout.is_some())
-            })
-        });
-
-        if !has_timeouts && config.endpoints.values().any(|e| e.proxy.is_some()) {
-            recommendations.push("Consider adding timeout configurations for proxy targets".to_string());
+        // Suggest adding caching for better performance
+        if config.cache.is_none() && config.endpoints.len() > 5 {
+            recommendations.push("Consider adding caching configuration for better performance".to_string());
         }
     }
 
@@ -551,7 +359,7 @@ impl BlueprintAnalyzer {
         // Summary
         println!("📈 Summary:");
         println!("   Endpoints: {}", report.summary.endpoints);
-        println!("   ├─ Proxy: {}", report.summary.proxy_endpoints);
+        println!("   ├─ Runtime: {}", report.summary.runtime_endpoints);
         println!("   ├─ Runtime: {}", report.summary.runtime_endpoints);
         println!("   └─ Database: {}", report.summary.database_endpoints);
         println!("   Transformations: {}", report.summary.transformations);
@@ -646,7 +454,6 @@ impl Default for AnalysisSummary {
     fn default() -> Self {
         Self {
             endpoints: 0,
-            proxy_endpoints: 0,
             runtime_endpoints: 0,
             database_endpoints: 0,
             transformations: 0,

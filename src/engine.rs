@@ -5,18 +5,15 @@ use tracing::{info, error};
 use crate::config::BackworksConfig;
 use crate::server::BackworksServer;
 use crate::dashboard::Dashboard;
-use crate::database::DatabaseManager;
 use crate::runtime::RuntimeManager;
 use crate::plugin::PluginManager;
-use crate::plugins::ai::AIPlugin;
-use crate::resilience::ResilientPluginConfig;
 use crate::error::Result;
 
 pub struct BackworksEngine {
     config: Arc<BackworksConfig>,
     server: BackworksServer,
     dashboard: Option<Arc<Dashboard>>,
-    database_manager: Option<DatabaseManager>,
+    #[allow(dead_code)] // TODO: Will be used when runtime features are implemented
     runtime_manager: RuntimeManager,
     plugin_manager: PluginManager,
 }
@@ -33,43 +30,9 @@ impl BackworksEngine {
         // Initialize plugin manager
         let plugin_manager = PluginManager::new();
         
-        // Initialize plugins based on configuration with resilience
-        if let Some(ai_config) = config.plugins.get("ai") {
-            if ai_config.enabled {
-                info!("🔌 Loading AI Plugin with resilience...");
-                let ai_plugin = Arc::new(AIPlugin::new());
-                
-                // Configure resilience settings for AI plugin
-                let resilience_config = ResilientPluginConfig {
-                    circuit_breaker: Some(crate::resilience::CircuitBreakerConfig {
-                        failure_threshold: 3,
-                        recovery_timeout: std::time::Duration::from_secs(60),
-                        timeout: std::time::Duration::from_millis(500), // AI operations can take longer
-                    }),
-                    resource_limits: Some(crate::resilience::PluginResourceLimits {
-                        max_memory_mb: Some(200), // AI needs more memory
-                        max_execution_time: Some(std::time::Duration::from_millis(500)),
-                        max_concurrent_operations: Some(5),
-                    }),
-                    is_critical: false, // AI plugin is not critical
-                };
-                
-                plugin_manager.register_plugin(
-                    ai_plugin, 
-                    Some(ai_config.config.clone()),
-                    Some(resilience_config)
-                ).await?;
-            }
-        }
-        
-        // Initialize database manager if needed
-        let database_manager = if config.database.is_some() || 
-            config.endpoints.values().any(|e| e.database.is_some()) {
-            info!("🗄️  Initializing database manager...");
-            Some(DatabaseManager::new())
-        } else {
-            None
-        };
+        // Plugin initialization is now handled by external plugin loading
+        // The core only provides the plugin architecture framework
+        info!("🔌 Plugin manager initialized - ready for external plugins");
         
         // Initialize runtime manager
         info!("⚡ Initializing runtime manager...");
@@ -92,7 +55,6 @@ impl BackworksEngine {
         info!("🚀 Initializing API server on {}:{}...", config.server.host, config.server.port);
         let server = BackworksServer::new(
             config.clone(),
-            database_manager.clone(),
             plugin_manager.clone(),
             dashboard.clone(),
         )?;
@@ -101,7 +63,6 @@ impl BackworksEngine {
             config,
             server,
             dashboard,
-            database_manager,
             runtime_manager,
             plugin_manager,
         })
@@ -185,8 +146,9 @@ impl BackworksEngine {
             }
         }
         
+        // Database functionality is now handled by plugins
         if self.config.database.is_some() {
-            println!("🗄️  Database: Connected");
+            println!("🗄️  Database: Configuration present (handled by plugins)");
         }
         
         println!("📑 Endpoints:");
@@ -219,18 +181,6 @@ mod tests {
             // mock and mock_responses fields removed (deprecated)
             runtime: None,
             database: None,
-            proxy: Some(crate::config::ProxyConfig {
-                target: "http://localhost:3000".to_string(),
-                targets: None,
-                strip_prefix: None,
-                timeout: Some(30),
-                transform_request: None,
-                transform_response: None,
-                health_checks: None,
-                load_balancing: None,
-                headers: None,
-                capture: None,
-            }),
             capture: None,
             ai_enhanced: None,
             ai_suggestions: None,
@@ -245,7 +195,7 @@ mod tests {
             name: "test_api".to_string(),
             description: None,
             version: None,
-            mode: ExecutionMode::Proxy,
+            mode: ExecutionMode::Runtime,
             endpoints,
             server: ServerConfig::default(),
             plugins: HashMap::new(), // Replaced ai field with plugins
