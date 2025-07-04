@@ -1,0 +1,47 @@
+name: "External Plugin Test"
+description: "Testing external plugin loading with weather plugin"
+version: "0.1.0"
+
+server:
+  host: "127.0.0.1"
+  port: 8080
+
+# Plugin discovery configuration
+plugin_discovery:
+  enabled: true
+  directories:
+    - "./examples/external-plugins/weather-plugin/target/release"
+    - "./plugins"
+  recursive: false
+
+# Explicit plugin configuration
+plugins:
+  weather:
+    enabled: true
+    plugin_type: "external"
+    path: "./examples/external-plugins/weather-plugin/target/release/libweather_plugin.dylib"
+    config:
+      api_key: "test_api_key_12345"
+      base_url: "https://api.openweathermap.org/data/2.5"
+
+endpoints:
+  "/weather":
+    method: "GET"
+    description: "Get weather information"
+    runtime:
+      type: "plugin"
+      handler: "weather"
+
+  "/health":
+    method: "GET"
+    description: "Health check endpoint"
+    response:
+      status: 200
+      body: '{"status": "healthy", "timestamp": "{{now}}"}'
+
+dashboard:
+  enabled: true
+  port: 8081
+
+logging:
+  level: "info"

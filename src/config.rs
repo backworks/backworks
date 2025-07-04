@@ -11,6 +11,35 @@ use std::path::PathBuf;
 use crate::error::{BackworksError, Result};
 use crate::plugin::PluginConfig;
 
+/// Configuration for plugin discovery
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PluginDiscoveryConfig {
+    /// Enable automatic plugin discovery
+    #[serde(default)]
+    pub enabled: bool,
+    
+    /// Directories to scan for external plugins
+    #[serde(default)]
+    pub directories: Vec<PathBuf>,
+    
+    /// Whether to scan recursively
+    #[serde(default)]
+    pub recursive: bool,
+}
+
+impl Default for PluginDiscoveryConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            directories: vec![
+                PathBuf::from("./plugins"),
+                PathBuf::from("./external_plugins"),
+            ],
+            recursive: false,
+        }
+    }
+}
+
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub enum ExecutionMode {
     #[serde(rename = "runtime")]
@@ -71,6 +100,10 @@ pub struct BackworksConfig {
     // Plugin configurations (replaces individual feature configs like AI)
     #[serde(default)]
     pub plugins: HashMap<String, PluginConfig>,
+    
+    // Plugin discovery configuration for external plugins
+    #[serde(default)]
+    pub plugin_discovery: PluginDiscoveryConfig,
     
     pub dashboard: Option<DashboardConfig>,
     pub database: Option<DatabaseConfig>,
@@ -933,6 +966,7 @@ impl NewBlueprintConfig {
             endpoints,
             server: self.server,
             plugins: self.plugins,
+            plugin_discovery: PluginDiscoveryConfig::default(),
             dashboard: self.dashboard,
             // Set defaults for other fields
             database: None,

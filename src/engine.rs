@@ -30,9 +30,25 @@ impl BackworksEngine {
         // Initialize plugin manager
         let plugin_manager = PluginManager::new();
         
-        // Plugin initialization is now handled by external plugin loading
-        // The core only provides the plugin architecture framework
-        info!("🔌 Plugin manager initialized - ready for external plugins");
+        // Initialize plugins from configuration
+        info!("🔌 Initializing plugins from configuration...");
+        
+        // Load external plugins from discovery configuration
+        if let Err(e) = plugin_manager.initialize_from_discovery(&config.plugin_discovery).await {
+            error!("Failed to initialize plugins from discovery: {}", e);
+        }
+        
+        // Load plugins specified in configuration
+        for (plugin_name, plugin_config) in &config.plugins {
+            if plugin_config.enabled {
+                info!("🔌 Loading plugin: {}", plugin_name);
+                if let Err(e) = plugin_manager.register_plugin_from_config(plugin_name, plugin_config, None).await {
+                    error!("Failed to load plugin {}: {}", plugin_name, e);
+                }
+            }
+        }
+        
+        info!("🔌 Plugin initialization completed");
         
         // Initialize runtime manager
         info!("⚡ Initializing runtime manager...");
@@ -199,6 +215,7 @@ mod tests {
             endpoints,
             server: ServerConfig::default(),
             plugins: HashMap::new(), // Replaced ai field with plugins
+            plugin_discovery: crate::config::PluginDiscoveryConfig::default(),
             dashboard: None,
             database: None,
             apis: None,

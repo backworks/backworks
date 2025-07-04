@@ -6,7 +6,14 @@ use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
+use std::path::Path;
 use tokio::sync::RwLock;
+use crate::config::PluginDiscoveryConfig;
+
+pub mod dynamic;
+pub mod discovery;
+pub use dynamic::{DynamicPluginLoader, PluginMetadata};
+pub use discovery::{PluginDiscovery, PluginRegistry};
 
 /// Configuration for a plugin
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -15,15 +22,37 @@ pub struct PluginConfig {
     pub enabled: bool,
     
     #[serde(default)]
+    pub plugin_type: PluginType,
+    
+    #[serde(default)]
     pub config: Value,
+    
+    // For external plugins
+    pub path: Option<String>,
 }
 
 impl Default for PluginConfig {
     fn default() -> Self {
         Self {
             enabled: false,
+            plugin_type: PluginType::Builtin,
             config: Value::Null,
+            path: None,
         }
+    }
+}
+
+/// Type of plugin
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum PluginType {
+    Builtin,
+    External,
+}
+
+impl Default for PluginType {
+    fn default() -> Self {
+        PluginType::Builtin
     }
 }
 
@@ -141,6 +170,7 @@ pub struct PluginManager {
     plugins: Arc<RwLock<HashMap<String, Arc<dyn BackworksPlugin>>>>,
     configs: Arc<RwLock<HashMap<String, Value>>>,
     resilient_executor: Arc<ResilientPluginExecutor>,
+    dynamic_loader: Arc<DynamicPluginLoader>,
 }
 
 impl PluginManager {
@@ -149,6 +179,7 @@ impl PluginManager {
             plugins: Arc::new(RwLock::new(HashMap::new())),
             configs: Arc::new(RwLock::new(HashMap::new())),
             resilient_executor: Arc::new(ResilientPluginExecutor::new()),
+            dynamic_loader: Arc::new(DynamicPluginLoader::new()),
         }
     }
     
@@ -191,6 +222,90 @@ impl PluginManager {
         }
         
         tracing::info!("🔌 Registered plugin: {}", name);
+        Ok(())
+    }
+    
+    /// Load and register an external plugin from a file path
+    pub async fn load_external_plugin<P: AsRef<Path>>(
+        &self, 
+        path: P, 
+        config: Option<Value>,
+        resilience_config: Option<ResilientPluginConfig>
+    ) -> BackworksResult<()> {
+        let plugin = self.dynamic_loader.load_plugin(path).await?;
+        let plugin_arc = Arc::from(plugin);
+        self.register_plugin(plugin_arc, config, resilience_config).await
+    }
+    
+    /// Register a plugin from configuration
+    pub async fn register_plugin_from_config(
+        &self,
+        name: &str,
+        plugin_config: &PluginConfig,
+        resilience_config: Option<ResilientPluginConfig>
+    ) -> BackworksResult<()> {
+        if !plugin_config.enabled {
+            tracing::debug!("Plugin {} is disabled, skipping", name);
+            return Ok(());
+        }
+        
+        match plugin_config.plugin_type {
+            PluginType::Builtin => {
+                // For builtin plugins, they should be registered separately
+                tracing::warn!("Cannot auto-register builtin plugin {} from config - must be registered explicitly", name);
+                Ok(())
+            }
+            PluginType::External => {
+                let path = plugin_config.path.as_ref()
+                    .ok_or_else(|| crate::error::BackworksError::Config(
+                        format!("External plugin {} missing path configuration", name)
+                    ))?;
+                
+                self.load_external_plugin(
+                    path,
+                    Some(plugin_config.config.clone()),
+                    resilience_config
+                ).await
+            }
+        }
+    }
+    
+    /// Discover and list available external plugins
+    pub async fn discover_plugins(&self) -> BackworksResult<Vec<PluginMetadata>> {
+        self.dynamic_loader.scan_plugins().await
+    }
+    
+    /// Add a directory to scan for external plugins
+    pub async fn add_plugin_directory<P: AsRef<Path>>(&self, path: P) {
+        // Since DynamicPluginLoader is behind Arc, we need to access it differently
+        // For now, we'll document this limitation and suggest using environment configuration
+        tracing::info!("To add plugin directory {}, configure it in your environment or configuration file", 
+                      path.as_ref().display());
+    }
+    
+    /// Initialize plugins from discovery configuration
+    pub async fn initialize_from_discovery(&self, discovery_config: &PluginDiscoveryConfig) -> BackworksResult<()> {
+        if !discovery_config.enabled {
+            tracing::debug!("Plugin discovery disabled, skipping auto-discovery");
+            return Ok(());
+        }
+        
+        let discovery = PluginDiscovery::new(discovery_config.clone());
+        let discovered_plugins = discovery.discover_all_plugins().await?;
+        
+        tracing::info!("Auto-discovered {} external plugins", discovered_plugins.len());
+        
+        for plugin_meta in discovered_plugins {
+            tracing::info!("Auto-loading plugin: {} v{} from {}", 
+                          plugin_meta.name, plugin_meta.version, plugin_meta.path.display());
+            
+            // Load the plugin with default configuration
+            if let Err(e) = self.load_external_plugin(&plugin_meta.path, None, None).await {
+                tracing::warn!("Failed to auto-load plugin {}: {}", plugin_meta.name, e);
+                // Continue with other plugins even if one fails
+            }
+        }
+        
         Ok(())
     }
     
